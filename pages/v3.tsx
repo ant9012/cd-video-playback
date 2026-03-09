@@ -41,7 +41,7 @@ export default function V3() {
         <>
             <Head>
                 {/* eslint-disable-next-line @next/next/no-sync-scripts */}
-                <script src="/coi-serviceworker.js" />
+                <script src="./coi-serviceworker.js" />
                 <meta name='viewport' content='initial-scale=1, viewport-fit=cover' />
             </Head>
             <div className='enginePage'>
