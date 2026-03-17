@@ -49,16 +49,20 @@ export default function V5U() {
         };
 
         // Boot sequence
+        // Boot sequence
         const bootEngine = async () => {
+            // Explicitly set your GitHub Pages base path
+            const basePath = '/rsdk-library-fork'; 
+
             try {
-               
-                await loadScript('coi-serviceworker.js');
+                // 1. Load service worker first
+                await loadScript(`${basePath}/coi-serviceworker.js`);
                 
-               
-                await loadScript('./modules/RSDKv5U.js');
+                // 2. Load the main Emscripten engine/WASM glue code
+                await loadScript(`${basePath}/modules/RSDKv5U.js`);
                 
-                
-                await loadScript('./lib/RSDKv5U.js');
+                // 3. Load the wrapper/helper script last
+                await loadScript(`${basePath}/lib/RSDKv5U.js`);
             } catch (err) {
                 console.error("Failed to load engine scripts:", err);
             }
