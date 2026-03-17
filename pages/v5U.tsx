@@ -65,7 +65,7 @@ export default function V5U() {
                 await loadScript(`${basePath}/coi-serviceworker.js`);
                 
                 // 2. Load the main Emscripten engine/WASM glue code
-                await loadScript(`${basePath}/modules/RSDKv5U.js`);
+                await loadScript(`${basePath}/lib/RSDKv5U.js`);
 
                 
             } catch (err) {
