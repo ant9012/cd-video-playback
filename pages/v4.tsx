@@ -15,25 +15,9 @@ import EngineFS from '@/lib/EngineFS'
 export default function V4() {
     const consoleRef = useRef<HTMLTextAreaElement>(null);
     const [isVisible, setIsVisible] = useState(true);
-    const [isReady, setIsReady] = useState(false); // <--- NEW STATE
+    const [isReady, setIsReady] = useState(false);
 
-    // ---------------------------------------------------------
-    // 1. Security Check Hook (The Gate)
-    // ---------------------------------------------------------
-    useEffect(() => {
-        // Check if we are in a Secure Context (Pthreads allowed)
-        if (typeof window !== 'undefined' && window.crossOriginIsolated) {
-            setIsReady(true); // Allow game to load
-        } else {
-            console.log("Page is not cross-origin isolated. Waiting for COI Service Worker...");
-            // The coi-serviceworker script (loaded below) will handle the reload.
-            // We just wait here.
-        }
-    }, []);
-
-    // ---------------------------------------------------------
-    // 2. Console Hook
-    // ---------------------------------------------------------
+    // 1. Console Hook
     useEffect(() => {
         const originalLog = console.log;
         const originalWarn = console.warn;
@@ -58,7 +42,6 @@ export default function V4() {
         console.log = (...args) => { originalLog.apply(console, args); appendToVirtualConsole('LOG', args); };
         console.warn = (...args) => { originalWarn.apply(console, args); appendToVirtualConsole('WRN', args); };
         console.error = (...args) => { originalError.apply(console, args); appendToVirtualConsole('ERR', args); };
-        
         window.addEventListener('error', (e) => appendToVirtualConsole('CRASH', [e.message]));
 
         return () => {
@@ -68,12 +51,20 @@ export default function V4() {
         };
     }, []);
 
-    // ---------------------------------------------------------
-    // 3. FileSystem Hook (Only runs if Ready)
-    // ---------------------------------------------------------
+    // 2. Security Check (The Gate)
     useEffect(() => {
-        if (!isReady) return; // Don't init FS until secure
+        if (window.crossOriginIsolated) {
+            console.log("High Performance Mode Active (Pthreads Enabled).");
+            setIsReady(true);
+        } else {
+            console.log("High Performance Mode Inactive. Waiting for Auto-Reload...");
+            // The coi-serviceworker script loaded below will detect this and trigger a reload.
+        }
+    }, []);
 
+    // 3. FileSystem Hook
+    useEffect(() => {
+        if (!isReady) return;
         // @ts-ignore
         window.TS_InitFS = async (p: string, f: any) => {
             console.log("Initializing FileSystem...");
@@ -96,52 +87,25 @@ export default function V4() {
             <div className='enginePage' style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden', backgroundColor: 'black' }}>
                 <ThemeProvider attribute='class' defaultTheme='dark' enableSystem>
                     
-                    {/* Always load COI Service Worker first */}
+                    {/* Load the Patched Service Worker Script FIRST */}
                     <Script src='coi-serviceworker.js' strategy="beforeInteractive" />
 
-                    {/* ONLY Render Game Components if Secure */}
                     {isReady ? (
                         <>
-                            <canvas 
-                                id='canvas' 
-                                className='engineCanvas' 
-                                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1, display: 'block' }} 
-                                onContextMenu={(e) => e.preventDefault()}
-                            />
-                            
-                            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 10, pointerEvents: 'none' }}>
-                                <Splash/>
-                            </div>
-
-                            {/* Load Game Scripts Only Now */}
+                            <canvas id='canvas' className='engineCanvas' style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1, display: 'block' }} onContextMenu={(e) => e.preventDefault()} />
+                            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 10, pointerEvents: 'none' }}><Splash/></div>
                             <Script src='./lib/RSDKv4.js' strategy="lazyOnload" />
                             <Script src='./modules/RSDKv4.js' strategy="lazyOnload" />
                         </>
                     ) : (
-                        // Loading Screen while waiting for Page Reload
-                        <div style={{ 
-                            position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', 
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', 
-                            color: 'white', fontFamily: 'monospace', zIndex: 999 
-                        }}>
-                            <h2>Enabling High Performance Mode (Reloading)...</h2>
+                        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: 'white', fontFamily: 'monospace', zIndex: 999 }}>
+                            <h2>Reloading for High Performance Mode...</h2>
                         </div>
                     )}
 
-                    {/* Console (Always visible for debugging) */}
-                    <div style={{ 
-                        position: 'absolute', bottom: 0, left: 0, width: '100%', height: '25vh', 
-                        backgroundColor: 'rgba(0, 0, 0, 0.9)', borderTop: '2px solid #333', zIndex: 9999, 
-                        display: isVisible ? 'flex' : 'none', flexDirection: 'column' 
-                    }}>
-                        <textarea 
-                            id="output" 
-                            ref={consoleRef}
-                            readOnly
-                            style={{ flex: 1, backgroundColor: 'transparent', color: '#00ff00', border: 'none', resize: 'none', padding: '10px' }}
-                        />
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: '25vh', backgroundColor: 'rgba(0, 0, 0, 0.9)', borderTop: '2px solid #333', zIndex: 9999, display: isVisible ? 'flex' : 'none', flexDirection: 'column' }}>
+                        <textarea id="output" ref={consoleRef} readOnly spellCheck={false} style={{ flex: 1, backgroundColor: 'transparent', color: '#00ff00', border: 'none', resize: 'none', padding: '10px' }} />
                     </div>
-
                 </ThemeProvider>
             </div>
         </>
