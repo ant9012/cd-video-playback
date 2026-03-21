@@ -14,13 +14,12 @@ import EngineFS from '@/lib/EngineFS'
 
 export default function V4() {
     const consoleRef = useRef<HTMLTextAreaElement>(null);
-    const [isVisible, setIsVisible] = useState(true); // Toggle visibility with a key if needed
+    const [isVisible, setIsVisible] = useState(true);
 
     // ---------------------------------------------------------
-    // 1. Console Interception Hook
+    // 1. Console & Error Interception Hook
     // ---------------------------------------------------------
     useEffect(() => {
-        // Save original methods
         const originalLog = console.log;
         const originalWarn = console.warn;
         const originalError = console.error;
@@ -30,6 +29,7 @@ export default function V4() {
             if (consoleRef.current) {
                 const message = args.map(arg => {
                     try {
+                        if (arg instanceof Error) return `${arg.name}: ${arg.message}\n${arg.stack}`;
                         return (typeof arg === 'object') ? JSON.stringify(arg) : String(arg);
                     } catch (e) {
                         return String(arg);
@@ -44,20 +44,41 @@ export default function V4() {
             }
         };
 
-        // Override
+        // --- A. Override Console Methods ---
         console.log = (...args) => { originalLog.apply(console, args); appendToVirtualConsole('LOG', args); };
         console.warn = (...args) => { originalWarn.apply(console, args); appendToVirtualConsole('WRN', args); };
         console.error = (...args) => { originalError.apply(console, args); appendToVirtualConsole('ERR', args); };
         console.info = (...args) => { originalInfo.apply(console, args); appendToVirtualConsole('INF', args); };
 
-        // Test log to prove it works
-        console.log("Console Hook Initialized successfully.");
+        // --- B. Catch Global Crashes (Syntax Errors, Wasm Crashes) ---
+        const handleGlobalError = (event: ErrorEvent) => {
+            const msg = event.error ? (event.error.stack || event.error.message) : event.message;
+            appendToVirtualConsole('CRASH', [msg]);
+            // return false to let the error propagate to the browser console too
+            return false;
+        };
+
+        // --- C. Catch Unhandled Promises (Async Errors) ---
+        const handleRejection = (event: PromiseRejectionEvent) => {
+            appendToVirtualConsole('PROMISE', [event.reason]);
+        };
+
+        window.addEventListener('error', handleGlobalError);
+        window.addEventListener('unhandledrejection', handleRejection);
+
+        // --- D. Check for Pthread Support (Common Issue) ---
+        if (typeof SharedArrayBuffer === 'undefined') {
+            appendToVirtualConsole('CRITICAL', ["SharedArrayBuffer is NOT defined. The game will fail to load."]);
+            appendToVirtualConsole('HINT', ["Ensure 'coi-serviceworker.js' is loaded and headers (COOP/COEP) are set."]);
+        }
 
         return () => {
             console.log = originalLog;
             console.warn = originalWarn;
             console.error = originalError;
             console.info = originalInfo;
+            window.removeEventListener('error', handleGlobalError);
+            window.removeEventListener('unhandledrejection', handleRejection);
         };
     }, []);
 
@@ -87,98 +108,40 @@ export default function V4() {
             <div className='enginePage' style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden', backgroundColor: 'black' }}>
                 <ThemeProvider attribute='class' defaultTheme='dark' enableSystem>
                     
-                    {/* 1. The Game Canvas (Background) */}
                     <canvas 
                         id='canvas' 
                         className='engineCanvas' 
-                        style={{ 
-                            position: 'absolute', 
-                            top: 0, 
-                            left: 0, 
-                            width: '100%', 
-                            height: '100%', 
-                            zIndex: 1, // Base layer
-                            display: 'block' 
-                        }} 
+                        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1, display: 'block' }} 
+                        onContextMenu={(e) => e.preventDefault()}
                     />
 
-                    {/* 2. The Splash Screen (Overlay) */}
                     <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 10, pointerEvents: 'none' }}>
                         <Splash/>
                     </div>
 
-                    {/* 3. The Debug Console (Floating Overlay) */}
                     <div style={{ 
-                        position: 'absolute', 
-                        bottom: 0, 
-                        left: 0, 
-                        width: '100%', 
-                        height: '25vh', // Takes up bottom 25% of screen
-                        backgroundColor: 'rgba(0, 0, 0, 0.85)', // Semi-transparent black
-                        backdropFilter: 'blur(4px)',
-                        borderTop: '2px solid #333',
-                        zIndex: 9999, // FORCE ON TOP OF EVERYTHING
-                        display: isVisible ? 'flex' : 'none',
-                        flexDirection: 'column'
+                        position: 'absolute', bottom: 0, left: 0, width: '100%', height: '25vh', 
+                        backgroundColor: 'rgba(0, 0, 0, 0.9)', borderTop: '2px solid #333', zIndex: 9999, 
+                        display: isVisible ? 'flex' : 'none', flexDirection: 'column' 
                     }}>
-                        {/* Console Header */}
-                        <div style={{ 
-                            padding: '5px 10px', 
-                            backgroundColor: '#222', 
-                            color: '#fff', 
-                            fontSize: '11px', 
-                            fontFamily: 'monospace',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            borderBottom: '1px solid #444'
-                        }}>
+                        <div style={{ padding: '5px 10px', backgroundColor: '#222', color: '#fff', fontSize: '11px', fontFamily: 'monospace', display: 'flex', justifyContent: 'space-between' }}>
                             <span>DEBUG CONSOLE</span>
                             <button onClick={() => setIsVisible(false)} style={{ cursor: 'pointer', background: 'none', border: 'none', color: '#ff5555' }}>[X]</button>
                         </div>
-
-                        {/* Console Output */}
                         <textarea 
-                            id="output" // Emscripten writes here too!
+                            id="output" 
                             ref={consoleRef}
                             readOnly
                             spellCheck={false}
                             style={{
-                                flex: 1,
-                                width: '100%',
-                                height: '100%',
-                                backgroundColor: 'transparent',
-                                color: '#00ff00',
-                                fontFamily: 'Consolas, Monaco, "Courier New", monospace',
-                                fontSize: '13px',
-                                lineHeight: '1.4',
-                                border: 'none',
-                                resize: 'none',
-                                outline: 'none',
-                                padding: '10px',
-                                boxSizing: 'border-box'
+                                flex: 1, width: '100%', height: '100%', backgroundColor: 'transparent', color: '#00ff00', 
+                                fontFamily: 'Consolas, monospace', fontSize: '13px', border: 'none', resize: 'none', outline: 'none', padding: '10px'
                             }}
                         />
                     </div>
 
-                    {/* Toggle Button (Visible when console is closed) */}
                     {!isVisible && (
-                        <button 
-                            onClick={() => setIsVisible(true)}
-                            style={{
-                                position: 'absolute',
-                                bottom: '10px',
-                                right: '10px',
-                                zIndex: 9999,
-                                padding: '5px 10px',
-                                backgroundColor: '#222',
-                                color: '#00ff00',
-                                border: '1px solid #00ff00',
-                                fontFamily: 'monospace',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            SHOW CONSOLE
-                        </button>
+                        <button onClick={() => setIsVisible(true)} style={{ position: 'absolute', bottom: '10px', right: '10px', zIndex: 9999, padding: '5px 10px', backgroundColor: '#222', color: '#00ff00', border: '1px solid #00ff00', fontFamily: 'monospace', cursor: 'pointer' }}>SHOW CONSOLE</button>
                     )}
 
                 </ThemeProvider>
