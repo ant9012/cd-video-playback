@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 
 import '@/app/globals.css'
 import '@/app/engine.css'
@@ -27,85 +27,156 @@ import EngineFS from '@/lib/EngineFS'
 // ---------------------
 
 export default function V4() {
-    const [consoleOutput, setConsoleOutput] = useState<string>("");
     const consoleRef = useRef<HTMLTextAreaElement>(null);
 
-    // Effect to initialize the FileSystem and the Console Hook
+    // ---------------------------------------------------------
+    // 1. Console Interception Hook
+    // ---------------------------------------------------------
     useEffect(() => {
-        // 1. Hook into window.TS_InitFS (FileSystem Init)
-        window.TS_InitFS = async (p: string, f: any) => {
-            try {
-                await EngineFS.Init(p);
-                f();
-            } catch (error) {
-                console.error("FS Init Error:", error);
+        // Save original methods so we don't break the browser dev tools
+        const originalLog = console.log;
+        const originalWarn = console.warn;
+        const originalError = console.error;
+        const originalInfo = console.info;
+
+        const appendToVirtualConsole = (type: string, args: any[]) => {
+            if (consoleRef.current) {
+                // Convert arguments to a readable string
+                const message = args.map(arg => {
+                    if (typeof arg === 'object') {
+                        try {
+                            return JSON.stringify(arg);
+                        } catch (e) {
+                            return String(arg);
+                        }
+                    }
+                    return String(arg);
+                }).join(' ');
+
+                const timestamp = new Date().toLocaleTimeString().split(' ')[0];
+                const line = `[${timestamp}] [${type.toUpperCase()}] ${message}\n`;
+
+                // Update DOM directly for performance (bypassing React render cycle)
+                consoleRef.current.value += line;
+                consoleRef.current.scrollTop = consoleRef.current.scrollHeight;
             }
         };
 
-        // 2. Hook into the Engine's print function
-        // The engine wrapper (RSDKv4.js) looks for an element with id="output" to write to.
-        // But since we are in React, we can intercept it directly or let the wrapper update the DOM.
-        // Below is a way to intercept console.log if the wrapper uses it, OR 
-        // simply let the wrapper write to the textarea via ID.
-        
-        // Since your wrapper uses: var element = document.getElementById('output');
-        // We just need to ensure the textarea has id="output".
-        
-    }, []);
+        // Override global console methods
+        console.log = (...args) => {
+            originalLog.apply(console, args); // Log to real browser console
+            appendToVirtualConsole('log', args); // Log to our UI
+        };
 
-    // Auto-scroll to bottom when console updates
+        console.warn = (...args) => {
+            originalWarn.apply(console, args);
+            appendToVirtualConsole('warn', args);
+        };
+
+        console.error = (...args) => {
+            originalError.apply(console, args);
+            appendToVirtualConsole('err', args);
+        };
+
+        console.info = (...args) => {
+            originalInfo.apply(console, args);
+            appendToVirtualConsole('info', args);
+        };
+
+        // Cleanup on unmount
+        return () => {
+            console.log = originalLog;
+            console.warn = originalWarn;
+            console.error = originalError;
+            console.info = originalInfo;
+        };
+    }, []); // Empty dependency array = runs immediately on mount
+
+    // ---------------------------------------------------------
+    // 2. FileSystem Initialization Hook
+    // ---------------------------------------------------------
     useEffect(() => {
-        if (consoleRef.current) {
-            consoleRef.current.scrollTop = consoleRef.current.scrollHeight;
-        }
-    }, [consoleOutput]);
+        // @ts-ignore
+        window.TS_InitFS = async (p: string, f: any) => {
+            console.log("Initializing FileSystem..."); // This will now show in your UI
+            try {
+                await EngineFS.Init(p);
+                console.log("FileSystem Initialized.");
+                f();
+            } catch (error) {
+                console.error("FS Init Failed:", error);
+            }
+        };
+    }, []);
 
     return (
         <>
             <Head>
                 <meta name='viewport' content='initial-scale=1, viewport-fit=cover' />
             </Head>
-            <div className='enginePage' style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+            
+            {/* 
+               Flex container to separate Game and Console. 
+               height: 100vh ensures it fills the screen without scrollbars on body.
+            */}
+            <div className='enginePage' style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
                 <ThemeProvider attribute='class' defaultTheme='dark' enableSystem>
                     <Splash/>
                     
-                    {/* Game Canvas */}
-                    <canvas className='engineCanvas' id='canvas' style={{ flex: 1 }} />
+                    {/* Game Area (Takes remaining space) */}
+                    <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+                        <canvas className='engineCanvas' id='canvas' style={{ width: '100%', height: '100%', display: 'block' }} />
+                    </div>
 
-                    {/* Console Output Section */}
-                    <div className="console-container" style={{ 
-                        height: '150px', 
-                        backgroundColor: '#1e1e1e', 
-                        color: '#00ff00',
-                        fontFamily: 'monospace',
-                        padding: '10px',
-                        borderTop: '2px solid #333'
+                    {/* Console Area (Fixed height at bottom) */}
+                    <div style={{ 
+                        height: '200px', 
+                        backgroundColor: '#0c0c0c', 
+                        borderTop: '1px solid #333',
+                        display: 'flex',
+                        flexDirection: 'column'
                     }}>
-                        <div style={{ marginBottom: '5px', fontWeight: 'bold' }}>Console Output:</div>
+                        <div style={{ 
+                            padding: '4px 10px', 
+                            backgroundColor: '#1f1f1f', 
+                            color: '#888', 
+                            fontSize: '12px',
+                            fontFamily: 'monospace',
+                            borderBottom: '1px solid #333'
+                        }}>
+                            JAVASCRIPT CONSOLE
+                        </div>
                         <textarea 
-                            id="output" 
+                            id="output" // Kept for Emscripten compatibility
                             ref={consoleRef}
                             readOnly
                             style={{
+                                flex: 1,
                                 width: '100%',
-                                height: '100%',
                                 backgroundColor: 'transparent',
-                                color: 'inherit',
+                                color: '#00ff00',
+                                fontFamily: 'Consolas, "Courier New", monospace',
+                                fontSize: '12px',
                                 border: 'none',
                                 resize: 'none',
                                 outline: 'none',
-                                fontSize: '12px'
+                                padding: '10px',
+                                boxSizing: 'border-box'
                             }}
-                            defaultValue="Initializing RSDKv4..."
+                            defaultValue="> Console Ready..."
                         />
                     </div>
 
                 </ThemeProvider>
 
-                {/* Scripts */}
-                <Script src='coi-serviceworker.js' strategy="beforeInteractive" />
-                <Script src='./lib/RSDKv4.js' strategy="lazyOnload" />
-                <Script src='./modules/RSDKv4.js' strategy="lazyOnload" />
+                {/* 
+                   Scripts are loaded AFTER the component mounts.
+                   Because the useEffect runs on mount, the console override
+                   happens BEFORE these scripts execute.
+                */}
+                <Script src='coi-serviceworker.js' />
+                <Script src='./lib/RSDKv4.js' />
+                <Script src='./modules/RSDKv4.js' />
             </div>
         </>
     )
