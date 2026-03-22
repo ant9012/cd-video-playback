@@ -16,46 +16,44 @@ export default function V4() {
     const [isReady, setIsReady] = useState(false);
     const consoleRef = useRef<HTMLTextAreaElement>(null);
 
-    // 1. Console Capture (Optional, but helps debug the worker)
+    // 1. Console Hook (For debugging on mobile/deployment)
     useEffect(() => {
         const originalLog = console.log;
         const originalError = console.error;
-
-        const logToScreen = (msg: string) => {
+        const logToScreen = (type: string, msg: string) => {
             if (consoleRef.current) {
-                consoleRef.current.value += msg + "\n";
+                consoleRef.current.value += `[${type}] ${msg}\n`;
                 consoleRef.current.scrollTop = consoleRef.current.scrollHeight;
             }
         };
-
-        console.log = (...args) => { originalLog.apply(console, args); logToScreen(args.join(' ')); };
-        console.error = (...args) => { originalError.apply(console, args); logToScreen("[ERR] " + args.join(' ')); };
-
-        return () => { console.log = originalLog; console.error = originalError; };
+        console.log = (...args) => { originalLog.apply(console, args); logToScreen("LOG", args.join(' ')); };
+        console.error = (...args) => { originalError.apply(console, args); logToScreen("ERR", args.join(' ')); };
     }, []);
 
-    // 2. Security Check (The Gate)
+    // 2. THE GATEKEEPER
     useEffect(() => {
-        // If the browser says we are "Isolated", Pthreads will work.
+        // If we are already secure (Pthreads allowed), let the game load.
         if (window.crossOriginIsolated) {
-            console.log("Environment Secure (COOP/COEP). Loading Game...");
+            console.log("Environment Secure. Starting Engine...");
             setIsReady(true);
         } else {
             console.log("Environment Insecure. Waiting for Service Worker Reload...");
         }
     }, []);
 
-    // 3. FileSystem Hook
+    // 3. FileSystem Hook (Only runs if Secure)
     useEffect(() => {
         if (!isReady) return;
+        
         // @ts-ignore
         window.TS_InitFS = async (p: string, f: any) => {
             console.log("Initializing FileSystem...");
             try {
                 await EngineFS.Init(p);
-                console.log("FS Ready. Starting Engine.");
+                console.log("FileSystem Ready.");
                 f();
             } catch (error) {
+                console.error("FS Error:", error);
             }
         };
     }, [isReady]);
@@ -68,32 +66,28 @@ export default function V4() {
             <div className='enginePage' style={{position: 'relative', width: '100vw', height: '100vh', backgroundColor: 'black'}}>
                 <ThemeProvider attribute='class' defaultTheme='dark' enableSystem>
                     
-                    {/* 1. Load the Service Worker FIRST. It will reload the page if needed. */}
+                    {/* ALWAYS Load Service Worker First */}
                     <Script src='coi-serviceworker.js' strategy="beforeInteractive" />
 
-                    {/* 2. Only render Game & Scripts if Secure */}
+                    {/* ONLY Load Game if Secure */}
                     {isReady ? (
                         <>
-                            <Splash/>
-                            <canvas className='engineCanvas' id='canvas' style={{display: 'block', width: '100%', height: '100%'}} />
+                            <canvas id='canvas' className='engineCanvas' style={{position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'block'}} onContextMenu={(e)=>e.preventDefault()} />
+                            <div style={{position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none'}}><Splash/></div>
                             
-                            {/* Load Wrapper First, then Engine */}
+                            {/* Load Wrapper, then Engine */}
                             <Script src='./lib/RSDKv4.js' strategy="lazyOnload" />
                             <Script src='./modules/RSDKv4.js' strategy="lazyOnload" />
                         </>
                     ) : (
-                        // Loading Screen while waiting for reload
-                        <div style={{color: 'white', display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%'}}>
+                        <div style={{color: 'white', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100%'}}>
                             <h2>Enabling High Performance Mode...</h2>
+                            <p>Reloading page to enable Pthreads</p>
                         </div>
                     )}
 
-                    {/* Mini Console for debugging Pthread errors */}
-                    <textarea 
-                        ref={consoleRef} 
-                        style={{position: 'absolute', bottom: 0, left: 0, width: '100%', height: '100px', background: 'rgba(0,0,0,0.8)', color: 'lime', border: 'none', fontSize: '10px', zIndex: 9999}}
-                        readOnly 
-                    />
+                    {/* Debug Console */}
+                    <textarea ref={consoleRef} style={{position: 'absolute', bottom: 0, left: 0, width: '100%', height: '100px', background: 'rgba(0,0,0,0.8)', color: 'lime', border: 'none', zIndex: 9999}} readOnly />
 
                 </ThemeProvider>
             </div>
