@@ -54,7 +54,7 @@ While not an engine - thought I'd include this here anyways
 ## Building RSDKv5(U) Games/Mods for the Web
 
 > [!NOTE]  
-> While these instructions do work for Sonic Mania, they probably won't work for any and every GameAPI mod.
+> While these instructions do work for Sonic Mania, they probably won't work for **EVERY** GameAPI mod.
 
 Pretty simple to do - first, in the same directory as the projects' `CMakeLists.txt`, make a new file called `RSDK-Library-GameAPI.cmake`, with its contents being:
 
