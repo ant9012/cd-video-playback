@@ -26,44 +26,33 @@ document.body.style.margin = '0';
 document.body.style.overflow = 'hidden'; 
 
 window.addEventListener('resize', enforceIntegerScaling);
+
 var Module = {
-    preRun: [function() {
-        // 1. Add a block to prevent the C++ engine from initializing yet
-        Module.addRunDependency('syncfs');
-        
-        // 2. Start the async VFS / IndexedDB loading
-        TS_InitFS('RSDKv5U', function () {
-            console.log('EngineFS initialized');
-            
-            const splash = document.getElementById("splash");
-            if (splash) {
-                splash.style.opacity = 0;
-                setTimeout(() => { splash.remove(); }, 1000);
-            }
-            
-            // 3. Set the Emscripten Working Directory to your upload folder
-            FS.chdir('/RSDKv5U');
-            
-            // 4. File system is ready! Remove the block.
-            // This will tell Emscripten it is now safe to proceed to onRuntimeInitialized.
-            Module.removeRunDependency('syncfs');
-        });
-    }],
+    // We are back to your original, safe initialization phase
     onRuntimeInitialized: function () {
-        // Because we used run dependencies in preRun, this function is guaranteed 
-        // to only execute AFTER the IndexedDB files are fully loaded into the VFS.
-        RSDK_Init();
+        TS_InitFS('RSDKv5U',
+            function () {
+                console.log('EngineFS initialized');
+                const splash = document.getElementById("splash");
+                if (splash) {
+                    splash.style.opacity = 0;
+                    setTimeout(() => { splash.remove(); }, 1000);
+                }
+                
+                // Files are fully loaded. Let's configure and boot!
+                RSDK_Init();
+            });
     },
     print: (function () {
         var element = document.getElementById('output');
-        if (element) element.value = ''; // clear browser cache
+        if (element) element.value = ''; 
         return function (text) {
             if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
 
             console.log(text);
             if (element) {
                 element.value += text + "\n";
-                element.scrollTop = element.scrollHeight; // focus on bottom
+                element.scrollTop = element.scrollHeight; 
             }
         };
     })(),
@@ -78,7 +67,7 @@ var Module = {
         if (text === Module.setStatus.last.text) return;
         var m = text.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/);
         var now = Date.now();
-        if (m && now - Module.setStatus.last.time < 30) return; // if this is a progress update, skip it if too soon
+        if (m && now - Module.setStatus.last.time < 30) return; 
         Module.setStatus.last.time = now;
         Module.setStatus.last.text = text;
 
@@ -105,18 +94,20 @@ window.onerror = () => {
 };
 
 function RSDK_Init() {
-    // Redundant but safe: Ensure we are in the correct directory 
-    // before the C++ engine starts calling fopen()
+    // 1. Step into the folder populated by your IndexedDB setup
     FS.chdir('/RSDKv5U');
 
+    // 2. Load configurations
     const storedSettings = localStorage.getItem('settings');
     if (storedSettings) {
         const settings = JSON.parse(storedSettings);
-
-        // value, index
-        // index 0 - plus
         _RSDK_Configure(settings.enablePlus, 0);
     }
 
+    // 3. Initialize the Engine API
     _RSDK_Initialize();
+
+    // 4. THE CRITICAL FIX: Manually invoke the C++ main() function 
+    // now that we are 100% sure the files exist and the path is correct.
+    Module.callMain();
 }
