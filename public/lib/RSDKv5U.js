@@ -95,18 +95,27 @@ window.onerror = () => {
 };
 
 function RSDK_Init() {
-    // 1. Step into the folder populated by your IndexedDB setup
-    FS.chdir('/RSDKv5U');
+    try {
+        FS.chdir('/RSDKv5U');
 
-    // 2. Load configurations
-    const storedSettings = localStorage.getItem('settings');
-    if (storedSettings) {
-        const settings = JSON.parse(storedSettings);
-        _RSDK_Configure(settings.enablePlus, 0);
+        const storedSettings = localStorage.getItem('settings');
+        if (storedSettings) {
+            const settings = JSON.parse(storedSettings);
+            _RSDK_Configure(settings.enablePlus, 0);
+        }
+
+        // The engine will throw 'unwind' right here when it sets up the main loop
+        _RSDK_Initialize();
+        Module.callMain(); 
+
+    } catch (e) {
+        // Silently catch the expected unwind exception
+        if (e === 'unwind' || String(e).includes('unwind') || (e && e.name === 'ExitStatus')) {
+            console.log("Main loop established. Engine yielded to browser successfully.");
+        } else {
+            // If it's a real crash, let it be known
+            console.error("Critical Engine Error:", e);
+            throw e; 
+        }
     }
-
-    // 3. Initialize the Engine API
-    _RSDK_Initialize();
-
-    Module.callMain();
 }
