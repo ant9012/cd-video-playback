@@ -26,8 +26,12 @@ import EngineFS from '@/lib/EngineFS'
 // ---------------------
 
 export default function V5U() {
-    // We use a ref instead of state so updating logs doesn't re-render the canvas!
     const consoleRef = React.useRef<HTMLDivElement>(null);
+    
+    // 1. Direct reference to the canvas
+    const canvasRef = React.useRef<HTMLCanvasElement>(null);
+    // 2. Guard to prevent React Strict Mode from double-booting the engine
+    const engineStarted = React.useRef(false);
 
     // --- Console Setup & Interception ---
     React.useEffect(() => {
@@ -35,7 +39,6 @@ export default function V5U() {
         const originalWarn = console.warn;
         const originalError = console.error;
 
-        // Helper to manually inject log lines into the DOM without React state
         const appendLog = (msg: string, color: string) => {
             if (consoleRef.current) {
                 const line = document.createElement('div');
@@ -43,8 +46,6 @@ export default function V5U() {
                 line.style.wordBreak = 'break-all';
                 line.textContent = msg;
                 consoleRef.current.appendChild(line);
-                
-                // Auto-scroll
                 consoleRef.current.scrollTop = consoleRef.current.scrollHeight;
             }
         };
@@ -52,19 +53,19 @@ export default function V5U() {
         console.log = (...args) => {
             originalLog(...args);
             const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ');
-            appendLog(message, '#00ff00'); // Green for standard logs
+            appendLog(message, '#00ff00');
         };
 
         console.warn = (...args) => {
             originalWarn(...args);
             const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ');
-            appendLog(message, '#ffff00'); // Yellow for warnings
+            appendLog(message, '#ffff00');
         };
 
         console.error = (...args) => {
             originalError(...args);
             const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ');
-            appendLog(message, '#ff0000'); // Red for errors
+            appendLog(message, '#ff0000');
         };
 
         return () => {
@@ -76,6 +77,17 @@ export default function V5U() {
 
     // --- Engine FS ---
     React.useEffect(() => {
+        if (engineStarted.current) return;
+        engineStarted.current = true;
+
+        // Force Emscripten to lock onto our React canvas
+        // @ts-ignore
+        window.Module = window.Module || {};
+        if (canvasRef.current) {
+            // @ts-ignore
+            window.Module.canvas = canvasRef.current;
+        }
+
         // @ts-ignore
         window.TS_InitFS = async (p: string, f: any) => {
             try {
@@ -96,7 +108,9 @@ export default function V5U() {
             <div className='enginePage' style={{ position: 'relative' }}>
                 <ThemeProvider attribute='class' defaultTheme='dark' enableSystem>
                     <Splash/>
-                    <canvas className='engineCanvas' id='canvas' />
+                    
+                    {/* 3. Attach the ref to your canvas here */}
+                    <canvas ref={canvasRef} className='engineCanvas' id='canvas' />
 
                     {/* --- Passive Console Overlay --- */}
                     <div 
@@ -115,7 +129,7 @@ export default function V5U() {
                             overflowY: 'auto',
                             padding: '1rem',
                             boxSizing: 'border-box',
-                            pointerEvents: 'none' // CRITICAL: Lets clicks pass through to the game
+                            pointerEvents: 'none'
                         }}
                     />
                 </ThemeProvider>
