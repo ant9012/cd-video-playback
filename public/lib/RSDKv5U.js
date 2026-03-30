@@ -28,7 +28,6 @@ document.body.style.overflow = 'hidden';
 window.addEventListener('resize', enforceIntegerScaling);
 
 var Module = {
-    noInitialRun: true,
     // We are back to your original, safe initialization phase
     onRuntimeInitialized: function () {
         TS_InitFS('RSDKv5U',
@@ -108,7 +107,15 @@ function RSDK_Init() {
     // 3. Initialize the Engine API
     _RSDK_Initialize();
 
-    // 4. THE CRITICAL FIX: Manually invoke the C++ main() function 
-    // now that we are 100% sure the files exist and the path is correct.
-    Module.callMain();
+    try {
+        Module.callMain();
+    } catch (e) {
+        // Check if this is just Emscripten's expected infinite loop halt
+        if (e === 'unwind' || String(e).includes('unwind') || (e.name && e.name === 'ExitStatus')) {
+            console.log("Engine yielded to browser event loop successfully.");
+        } else {
+            // If it's a real crash, rethrow it so window.onerror can catch it
+            throw e; 
+        }
+    }
 }
