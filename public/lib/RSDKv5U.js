@@ -26,34 +26,27 @@ document.body.style.margin = '0';
 document.body.style.overflow = 'hidden'; 
 
 window.addEventListener('resize', enforceIntegerScaling);
-
 var Module = {
-    noInitialRun: true,
-    // We are back to your original, safe initialization phase
     onRuntimeInitialized: function () {
         TS_InitFS('RSDKv5U',
             function () {
                 console.log('EngineFS initialized');
                 const splash = document.getElementById("splash");
-                if (splash) {
-                    splash.style.opacity = 0;
-                    setTimeout(() => { splash.remove(); }, 1000);
-                }
-                
-                // Files are fully loaded. Let's configure and boot!
+                splash.style.opacity = 0;
+                setTimeout(() => { splash.remove(); }, 1000);
                 RSDK_Init();
             });
     },
     print: (function () {
         var element = document.getElementById('output');
-        if (element) element.value = ''; 
+        if (element) element.value = ''; // clear browser cache
         return function (text) {
             if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
 
             console.log(text);
             if (element) {
                 element.value += text + "\n";
-                element.scrollTop = element.scrollHeight; 
+                element.scrollTop = element.scrollHeight; // focus on bottom
             }
         };
     })(),
@@ -68,7 +61,7 @@ var Module = {
         if (text === Module.setStatus.last.text) return;
         var m = text.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/);
         var now = Date.now();
-        if (m && now - Module.setStatus.last.time < 30) return; 
+        if (m && now - Module.setStatus.last.time < 30) return; // if this is a progress update, skip it if too soon
         Module.setStatus.last.time = now;
         Module.setStatus.last.text = text;
 
@@ -77,6 +70,8 @@ var Module = {
         }
 
         console.log(text);
+
+        // statusElement.innerHTML = text;
     },
     totalDependencies: 0,
     monitorRunDependencies: (left) => {
@@ -84,7 +79,6 @@ var Module = {
         Module.setStatus(left ? 'Preparing... (' + (this.totalDependencies - left) + '/' + this.totalDependencies + ')' : 'All downloads complete.');
     }
 };
-
 Module.setStatus('Downloading...');
 window.onerror = () => {
     Module.setStatus('Exception thrown, see JavaScript console');
@@ -95,26 +89,16 @@ window.onerror = () => {
 };
 
 function RSDK_Init() {
-    try {
-        FS.chdir('/RSDKv5U');
+    FS.chdir('/RSDKv5U');
 
-        const storedSettings = localStorage.getItem('settings');
-        if (storedSettings) {
-            const settings = JSON.parse(storedSettings);
-            if (typeof _RSDK_Configure !== 'undefined') {
-                _RSDK_Configure(settings.enablePlus, 0);
-            }
-        }
+    const storedSettings = localStorage.getItem('settings');
+    if (storedSettings) {
+        const settings = JSON.parse(storedSettings);
 
-        // Boot the runtime
-        Module.callMain(); 
-
-    } catch (e) {
-        if (e === 'unwind' || String(e).includes('unwind') || (e && e.name === 'ExitStatus')) {
-            console.log("Main loop successfully attached to React canvas.");
-        } else {
-            console.error("Critical Engine Error:", e);
-            throw e; 
-        }
+        // value, index
+        // index 0 - plus
+        _RSDK_Configure(settings.enablePlus, 0);
     }
+
+    _RSDK_Initialize();
 }
