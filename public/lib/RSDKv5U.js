@@ -96,24 +96,33 @@ window.onerror = () => {
 
 function RSDK_Init() {
     try {
+        // 1. Force Emscripten to lock onto the live Next.js canvas
+        Module.canvas = document.getElementById('canvas');
+        
         FS.chdir('/RSDKv5U');
 
         const storedSettings = localStorage.getItem('settings');
         if (storedSettings) {
             const settings = JSON.parse(storedSettings);
-            _RSDK_Configure(settings.enablePlus, 0);
+            if (typeof _RSDK_Configure !== 'undefined') {
+                _RSDK_Configure(settings.enablePlus, 0);
+            }
         }
 
-        // The engine will throw 'unwind' right here when it sets up the main loop
-        _RSDK_Initialize();
+        // 2. Boot the C-runtime and WebGL subsystems properly
+        // If your fork uses a standard main(), this will start the game and throw 'unwind'.
         Module.callMain(); 
+
+        // 3. Fallback: If callMain didn't start the engine loop, trigger it manually
+        if (typeof _RSDK_Initialize !== 'undefined') {
+            _RSDK_Initialize();
+        }
 
     } catch (e) {
         // Silently catch the expected unwind exception
         if (e === 'unwind' || String(e).includes('unwind') || (e && e.name === 'ExitStatus')) {
-            console.log("Main loop established. Engine yielded to browser successfully.");
+            console.log("Main loop established. Engine is officially running.");
         } else {
-            // If it's a real crash, let it be known
             console.error("Critical Engine Error:", e);
             throw e; 
         }
