@@ -26,51 +26,58 @@ import EngineFS from '@/lib/EngineFS'
 // ---------------------
 
 export default function V5U() {
-    // --- Console State ---
-    const [logs, setLogs] = React.useState<string[]>([]);
-    const [input, setInput] = React.useState('');
-    const endOfLogsRef = React.useRef<HTMLDivElement>(null);
+    // We use a ref instead of state so updating logs doesn't re-render the canvas!
+    const consoleRef = React.useRef<HTMLDivElement>(null);
 
     // --- Console Setup & Interception ---
     React.useEffect(() => {
-        // Intercept console.log to push to our UI console
         const originalLog = console.log;
+        const originalWarn = console.warn;
+        const originalError = console.error;
+
+        // Helper to manually inject log lines into the DOM without React state
+        const appendLog = (msg: string, color: string) => {
+            if (consoleRef.current) {
+                const line = document.createElement('div');
+                line.style.color = color;
+                line.style.wordBreak = 'break-all';
+                line.textContent = msg;
+                consoleRef.current.appendChild(line);
+                
+                // Auto-scroll
+                consoleRef.current.scrollTop = consoleRef.current.scrollHeight;
+            }
+        };
+
         console.log = (...args) => {
-            // Convert objects to strings so they render nicely
+            originalLog(...args);
             const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ');
-            setLogs((prev) => [...prev, message]);
-            originalLog(...args); // Keep logging to the actual browser console
+            appendLog(message, '#00ff00'); // Green for standard logs
+        };
+
+        console.warn = (...args) => {
+            originalWarn(...args);
+            const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ');
+            appendLog(message, '#ffff00'); // Yellow for warnings
+        };
+
+        console.error = (...args) => {
+            originalError(...args);
+            const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ');
+            appendLog(message, '#ff0000'); // Red for errors
         };
 
         return () => {
             console.log = originalLog;
+            console.warn = originalWarn;
+            console.error = originalError;
         };
     }, []);
-
-    // Auto-scroll to bottom of console when new logs arrive
-    React.useEffect(() => {
-        if (endOfLogsRef.current) {
-            endOfLogsRef.current.scrollIntoView({ behavior: 'smooth' });
-        }
-    }, [logs]);
-
-    // Handle pressing Enter in the console input
-    const handleCommandSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter' && input.trim() !== '') {
-            // Echo the command to the logs
-            setLogs((prev) => [...prev, `> ${input}`]);
-
-            // TODO: Wire up your RSDKv5U / Engine command parsing here
-            // Example: if (input === 'godmode') { enableGodMode(); }
-
-            setInput('');
-        }
-    };
 
     // --- Engine FS ---
     // this is stupid.
     React.useEffect(() => {
-        // @ts-ignore - Ignoring if TS complains about window augmentation
+        // @ts-ignore
         window.TS_InitFS = async (p: string, f: any) => {
             try {
                 await EngineFS.Init(p);
@@ -92,52 +99,26 @@ export default function V5U() {
                     <Splash/>
                     <canvas className='engineCanvas' id='canvas' />
 
-                    {/* --- Console Overlay (Always Visible, Bulletproof Z-Index) --- */}
+                    {/* --- Passive Console Overlay --- */}
                     <div 
+                        ref={consoleRef}
                         className="engine-console"
                         style={{
-                            position: 'fixed', // Locks to the viewport
+                            position: 'fixed',
                             top: 0,
                             left: 0,
-                            width: '100vw', // Full viewport width
-                            height: '40vh', // 40% viewport height
-                            backgroundColor: 'rgba(0, 0, 0, 0.85)',
-                            color: '#00ff00',
+                            width: '100vw',
+                            height: '40vh',
+                            backgroundColor: 'rgba(0, 0, 0, 0.75)',
                             fontFamily: 'monospace',
-                            zIndex: 2147483647, // Maximum possible z-index value
-                            display: 'flex',
-                            flexDirection: 'column',
+                            fontSize: '14px',
+                            zIndex: 2147483647,
+                            overflowY: 'auto',
                             padding: '1rem',
                             boxSizing: 'border-box',
-                            pointerEvents: 'auto' // Ensures you can click and interact with the input
+                            pointerEvents: 'none' // CRITICAL: Lets clicks pass through to the game
                         }}
-                    >
-                        <div style={{ flex: 1, overflowY: 'auto', marginBottom: '10px' }}>
-                            {logs.map((log, index) => (
-                                <div key={index} style={{ wordBreak: 'break-all' }}>{log}</div>
-                            ))}
-                            <div ref={endOfLogsRef} />
-                        </div>
-                        
-                        <input
-                            type="text"
-                            value={input}
-                            onChange={(e) => setInput(e.target.value)}
-                            onKeyDown={handleCommandSubmit}
-                            style={{
-                                width: '100%',
-                                backgroundColor: 'transparent',
-                                border: 'none',
-                                borderTop: '1px solid #00ff00',
-                                color: '#00ff00',
-                                outline: 'none',
-                                paddingTop: '10px',
-                                fontFamily: 'monospace'
-                            }}
-                            placeholder="Enter command..."
-                            autoFocus
-                        />
-                    </div>
+                    />
                 </ThemeProvider>
 
                 <Script src='coi-serviceworker.js' />
