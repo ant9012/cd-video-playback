@@ -24877,10 +24877,10 @@ function checkIncomingModuleAPI() {
 }
 
 var ASM_CONSTS = {
-  467700: () => {
+  467732: () => {
     window.location.href = window.location.href.substring(0, window.location.href.lastIndexOf("/"));
   },
-  467801: () => {
+  467833: () => {
     FS.syncfs(false, function(err) {
       if (err) {
         ccall("SyncFSCompleted", null, [ "number" ], [ err ]);
@@ -24889,7 +24889,7 @@ var ASM_CONSTS = {
       }
     });
   },
-  467960: ($0, $1, $2, $3, $4) => {
+  467992: ($0, $1, $2, $3, $4) => {
     if (typeof window === "undefined" || (window.AudioContext || window.webkitAudioContext) === undefined) {
       return 0;
     }
@@ -24956,7 +24956,7 @@ var ASM_CONSTS = {
     window.miniaudio.referenceCount += 1;
     return 1;
   },
-  469950: () => {
+  469982: () => {
     if (typeof (window.miniaudio) !== "undefined") {
       window.miniaudio.referenceCount -= 1;
       if (window.miniaudio.referenceCount === 0) {
@@ -24964,8 +24964,8 @@ var ASM_CONSTS = {
       }
     }
   },
-  470114: () => (navigator.mediaDevices !== undefined && navigator.mediaDevices.getUserMedia !== undefined),
-  470218: () => {
+  470146: () => (navigator.mediaDevices !== undefined && navigator.mediaDevices.getUserMedia !== undefined),
+  470250: () => {
     try {
       var temp = new (window.AudioContext || window.webkitAudioContext);
       var sampleRate = temp.sampleRate;
@@ -24975,7 +24975,7 @@ var ASM_CONSTS = {
       return 0;
     }
   },
-  470389: ($0, $1, $2, $3, $4, $5) => {
+  470421: ($0, $1, $2, $3, $4, $5) => {
     var deviceType = $0;
     var channels = $1;
     var sampleRate = $2;
@@ -25045,8 +25045,8 @@ var ASM_CONSTS = {
     }
     return miniaudio.track_device(device);
   },
-  473172: $0 => miniaudio.get_device_by_index($0).webaudio.sampleRate,
-  473238: $0 => {
+  473204: $0 => miniaudio.get_device_by_index($0).webaudio.sampleRate,
+  473270: $0 => {
     var device = miniaudio.get_device_by_index($0);
     if (device.scriptNode !== undefined) {
       device.scriptNode.onaudioprocess = function(e) {};
@@ -25060,20 +25060,20 @@ var ASM_CONSTS = {
     device.webaudio.close();
     device.webaudio = undefined;
   },
-  473603: $0 => {
+  473635: $0 => {
     miniaudio.untrack_device_by_index($0);
   },
-  473646: $0 => {
+  473678: $0 => {
     var device = miniaudio.get_device_by_index($0);
     device.webaudio.resume();
     device.state = miniaudio.device_state.started;
   },
-  473771: $0 => {
+  473803: $0 => {
     var device = miniaudio.get_device_by_index($0);
     device.webaudio.suspend();
     device.state = miniaudio.device_state.stopped;
   },
-  473897: $0 => {
+  473929: $0 => {
     var str = UTF8ToString($0) + "\n\n" + "Abort/Retry/Ignore/AlwaysIgnore? [ariA] :";
     var reply = window.prompt(str, "i");
     if (reply === null) {
@@ -25081,7 +25081,7 @@ var ASM_CONSTS = {
     }
     return reply.length === 1 ? reply.charCodeAt(0) : -1;
   },
-  474112: () => {
+  474144: () => {
     if (typeof (AudioContext) !== "undefined") {
       return true;
     } else if (typeof (webkitAudioContext) !== "undefined") {
@@ -25089,7 +25089,7 @@ var ASM_CONSTS = {
     }
     return false;
   },
-  474259: () => {
+  474291: () => {
     if ((typeof (navigator.mediaDevices) !== "undefined") && (typeof (navigator.mediaDevices.getUserMedia) !== "undefined")) {
       return true;
     } else if (typeof (navigator.webkitGetUserMedia) !== "undefined") {
@@ -25097,7 +25097,7 @@ var ASM_CONSTS = {
     }
     return false;
   },
-  474493: $0 => {
+  474525: $0 => {
     if (typeof (Module["SDL2"]) === "undefined") {
       Module["SDL2"] = {};
     }
@@ -25121,11 +25121,11 @@ var ASM_CONSTS = {
     }
     return SDL2.audioContext === undefined ? -1 : 0;
   },
-  475045: () => {
+  475077: () => {
     var SDL2 = Module["SDL2"];
     return SDL2.audioContext.sampleRate;
   },
-  475113: ($0, $1, $2, $3) => {
+  475145: ($0, $1, $2, $3) => {
     var SDL2 = Module["SDL2"];
     var have_microphone = function(stream) {
       if (SDL2.capture.silenceTimer !== undefined) {
@@ -25167,7 +25167,7 @@ var ASM_CONSTS = {
       }, have_microphone, no_microphone);
     }
   },
-  476806: ($0, $1, $2, $3) => {
+  476838: ($0, $1, $2, $3) => {
     var SDL2 = Module["SDL2"];
     SDL2.audio.scriptProcessorNode = SDL2.audioContext["createScriptProcessor"]($1, 0, $0);
     SDL2.audio.scriptProcessorNode["onaudioprocess"] = function(e) {
@@ -25199,7 +25199,7 @@ var ASM_CONSTS = {
       SDL2.audio.silenceTimer = setInterval(silence_callback, ($1 / SDL2.audioContext.sampleRate) * 1e3);
     }
   },
-  477981: ($0, $1) => {
+  478013: ($0, $1) => {
     var SDL2 = Module["SDL2"];
     var numChannels = SDL2.capture.currentCaptureBuffer.numberOfChannels;
     for (var c = 0; c < numChannels; ++c) {
@@ -25218,7 +25218,7 @@ var ASM_CONSTS = {
       }
     }
   },
-  478586: ($0, $1) => {
+  478618: ($0, $1) => {
     var SDL2 = Module["SDL2"];
     var buf = $0 >>> 2;
     var numChannels = SDL2.audio.currentOutputBuffer["numberOfChannels"];
@@ -25232,7 +25232,7 @@ var ASM_CONSTS = {
       }
     }
   },
-  479075: $0 => {
+  479107: $0 => {
     var SDL2 = Module["SDL2"];
     if ($0) {
       if (SDL2.capture.silenceTimer !== undefined) {
@@ -25266,10 +25266,10 @@ var ASM_CONSTS = {
       SDL2.audioContext = undefined;
     }
   },
-  480081: $0 => {
+  480113: $0 => {
     window.open(UTF8ToString($0), "_blank");
   },
-  480121: ($0, $1, $2) => {
+  480153: ($0, $1, $2) => {
     var w = $0;
     var h = $1;
     var pixels = $2;
@@ -25340,7 +25340,7 @@ var ASM_CONSTS = {
     }
     SDL2.ctx.putImageData(SDL2.image, 0, 0);
   },
-  481587: ($0, $1, $2, $3, $4) => {
+  481619: ($0, $1, $2, $3, $4) => {
     var w = $0;
     var h = $1;
     var hot_x = $2;
@@ -25377,19 +25377,19 @@ var ASM_CONSTS = {
     stringToUTF8(url, urlBuf, url.length + 1);
     return urlBuf;
   },
-  482575: $0 => {
+  482607: $0 => {
     if (Module["canvas"]) {
       Module["canvas"].style["cursor"] = UTF8ToString($0);
     }
   },
-  482658: () => {
+  482690: () => {
     if (Module["canvas"]) {
       Module["canvas"].style["cursor"] = "none";
     }
   },
-  482727: () => window.innerWidth,
-  482757: () => window.innerHeight,
-  482788: ($0, $1) => {
+  482759: () => window.innerWidth,
+  482789: () => window.innerHeight,
+  482820: ($0, $1) => {
     alert(UTF8ToString($0) + "\n\n" + UTF8ToString($1));
   }
 };
