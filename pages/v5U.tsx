@@ -78,17 +78,14 @@ export default function V5U() {
     // this is stupid.
     React.useEffect(() => {
         // @ts-ignore
+       React.useEffect(() => {
+        // @ts-ignore
         window.TS_InitFS = async (p: string, f: any) => {
             try {
                 await EngineFS.Init(p);
-                f();
-            } catch (error: any) {
-                // Check if this is just Emscripten's expected infinite loop halt
-                if (error === 'unwind' || String(error).includes('unwind') || (error && error.name === 'ExitStatus')) {
-                    throw error;
-                } else {
-                    console.error("FS Init Error:", error);
-                }
+                setTimeout(f, 0); 
+            } catch (error) {
+                console.error("FS Init Error:", error);
             }
         };
     }, []);
