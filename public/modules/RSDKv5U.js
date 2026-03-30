@@ -1276,16 +1276,6 @@ var getDylinkMetadata = binary => {
   }
 }
 
-var wasmTableMirror = [];
-
-var getWasmTableEntry = funcPtr => {
-  var func = wasmTableMirror[funcPtr];
-  if (!func) {
-    /** @suppress {checkTypes} */ wasmTableMirror[funcPtr] = func = wasmTable.get(funcPtr);
-  }
-  return func;
-};
-
 var invokeEntryPoint = (ptr, arg) => {
   // An old thread on this worker may have been canceled without returning the
   // `runtimeKeepaliveCounter` to zero. Reset it now so the new thread won't
@@ -1311,7 +1301,7 @@ var invokeEntryPoint = (ptr, arg) => {
   // *ThreadMain(void *arg) form, or try linking with the Emscripten linker
   // flag -sEMULATE_FUNCTION_POINTER_CASTS to add in emulation for this x86
   // ABI extension.
-  var result = getWasmTableEntry(ptr)(arg);
+  var result = (a1 => {})(arg);
   function finish(result) {
     // In MINIMAL_RUNTIME the noExitRuntime concept does not apply to
     // pthreads. To exit a pthread with live runtime, use the function
@@ -1373,6 +1363,16 @@ var getMemory = size => {
 };
 
 var isInternalSym = symName => [ "memory", "__memory_base", "__table_base", "__stack_pointer", "__indirect_function_table", "__cpp_exception", "__c_longjmp", "__wasm_apply_data_relocs", "__dso_handle", "__tls_size", "__tls_align", "__set_stack_limits", "_emscripten_tls_init", "__wasm_init_tls", "__wasm_call_ctors", "__start_em_asm", "__stop_em_asm", "__start_em_js", "__stop_em_js" ].includes(symName) || symName.startsWith("__em_js__");
+
+var wasmTableMirror = [];
+
+var getWasmTableEntry = funcPtr => {
+  var func = wasmTableMirror[funcPtr];
+  if (!func) {
+    /** @suppress {checkTypes} */ wasmTableMirror[funcPtr] = func = wasmTable.get(funcPtr);
+  }
+  return func;
+};
 
 var updateTableMap = (offset, count) => {
   if (functionsInTableMap) {
@@ -1565,9 +1565,16 @@ var createNamedFunction = (name, func) => Object.defineProperty(func, "name", {
   value: name
 });
 
+var dynCalls = {};
+
+var dynCallLegacy = (sig, ptr, args) => {
+  sig = sig.replace(/p/g, "i");
+  var f = dynCalls[sig];
+  return f(ptr, ...args);
+};
+
 var dynCall = (sig, ptr, args = [], promising = false) => {
-  var func = getWasmTableEntry(ptr);
-  var rtn = func(...args);
+  var rtn = dynCallLegacy(sig, ptr, args);
   function convert(rtn) {
     return rtn;
   }
@@ -1856,6 +1863,7 @@ HEAPU8), ptr, maxBytesToRead, ignoreNul) : "";
 };
 
 var mergeLibSymbols = (exports, libName) => {
+  registerDynCallSymbols(exports);
   // add symbols into global namespace TODO: weak linking etc.
   for (var [sym, exp] of Object.entries(exports)) {
     // When RTLD_GLOBAL is enabled, the symbols defined by this shared object
@@ -4689,6 +4697,17 @@ var findLibraryFS = (libName, rpath) => {
   });
 };
 
+var registerDynCallSymbols = exports => {
+  for (var [sym, exp] of Object.entries(exports)) {
+    if (sym.startsWith("dynCall_")) {
+      var sig = sym.substring(8);
+      if (!dynCalls.hasOwnProperty(sig)) {
+        dynCalls[sig] = exp;
+      }
+    }
+  }
+};
+
 /**
      * @param {number=} handle
      * @param {Object=} localScope
@@ -4705,6 +4724,7 @@ var findLibraryFS = (libName, rpath) => {
       if (localScope) {
         Object.assign(localScope, dso.exports);
       }
+      registerDynCallSymbols(dso.exports);
     } else if (!dso.global) {
       // The library was previously loaded only locally but now
       // we have a request with global=true.
@@ -4776,6 +4796,7 @@ var findLibraryFS = (libName, rpath) => {
       mergeLibSymbols(exports, libName);
     } else if (localScope) {
       Object.assign(localScope, exports);
+      registerDynCallSymbols(exports);
     }
     dso.exports = exports;
   }
@@ -4907,7 +4928,7 @@ var ___assert_fail = (condition, filename, line, func) => abort(`Assertion faile
 
 ___assert_fail.sig = "vppip";
 
-var ___call_sighandler = (fp, sig) => getWasmTableEntry(fp)(sig);
+var ___call_sighandler = (fp, sig) => (a1 => {})(sig);
 
 ___call_sighandler.sig = "vpi";
 
@@ -5874,11 +5895,11 @@ var __emscripten_dlopen_js = (handle, onsuccess, onerror, user_data) => {
     var filename = UTF8ToString(handle + 36);
     dlSetError(`'Could not load dynamic lib: ${filename}\n${e}`);
     runtimeKeepalivePop();
-    callUserCallback(() => getWasmTableEntry(onerror)(handle, user_data));
+    callUserCallback(() => ((a1, a2) => {})(handle, user_data));
   }
   function successCallback() {
     runtimeKeepalivePop();
-    callUserCallback(() => getWasmTableEntry(onsuccess)(handle, user_data));
+    callUserCallback(() => ((a1, a2) => {})(handle, user_data));
   }
   runtimeKeepalivePush();
   var promise = dlopenInternal(handle, {
@@ -8292,7 +8313,7 @@ var registerRestoreOldStyle = canvas => {
       canvas.style.imageRendering = oldImageRendering;
       if (canvas.GLctxObject) canvas.GLctxObject.GLctx.viewport(0, 0, oldWidth, oldHeight);
       if (currentFullscreenStrategy.canvasResizedCallback) {
-        if (currentFullscreenStrategy.canvasResizedCallbackTargetThread) __emscripten_run_callback_on_thread(currentFullscreenStrategy.canvasResizedCallbackTargetThread, currentFullscreenStrategy.canvasResizedCallback, 37, 0, currentFullscreenStrategy.canvasResizedCallbackUserData); else getWasmTableEntry(currentFullscreenStrategy.canvasResizedCallback)(37, 0, currentFullscreenStrategy.canvasResizedCallbackUserData);
+        if (currentFullscreenStrategy.canvasResizedCallbackTargetThread) __emscripten_run_callback_on_thread(currentFullscreenStrategy.canvasResizedCallbackTargetThread, currentFullscreenStrategy.canvasResizedCallback, 37, 0, currentFullscreenStrategy.canvasResizedCallbackUserData); else ((a1, a2, a3) => {})(37, 0, currentFullscreenStrategy.canvasResizedCallbackUserData);
       }
     }
   }
@@ -8380,7 +8401,7 @@ var JSEvents_requestFullscreen = (target, strategy) => {
   }
   currentFullscreenStrategy = strategy;
   if (strategy.canvasResizedCallback) {
-    if (strategy.canvasResizedCallbackTargetThread) __emscripten_run_callback_on_thread(strategy.canvasResizedCallbackTargetThread, strategy.canvasResizedCallback, 37, 0, strategy.canvasResizedCallbackUserData); else getWasmTableEntry(strategy.canvasResizedCallback)(37, 0, strategy.canvasResizedCallbackUserData);
+    if (strategy.canvasResizedCallbackTargetThread) __emscripten_run_callback_on_thread(strategy.canvasResizedCallbackTargetThread, strategy.canvasResizedCallback, 37, 0, strategy.canvasResizedCallbackUserData); else ((a1, a2, a3) => {})(37, 0, strategy.canvasResizedCallbackUserData);
   }
   return 0;
 };
@@ -10574,7 +10595,7 @@ _emscripten_sample_gamepad_data.sig = "i";
 var registerBeforeUnloadEventCallback = (target, userData, useCapture, callbackfunc, eventTypeId, eventTypeString) => {
   var beforeUnloadEventHandlerFunc = e => {
     // Note: This is always called on the main browser thread, since it needs synchronously return a value!
-    var confirmationMessage = getWasmTableEntry(callbackfunc)(eventTypeId, 0, userData);
+    var confirmationMessage = ((a1, a2, a3) => {})(eventTypeId, 0, userData);
     if (confirmationMessage) {
       confirmationMessage = UTF8ToString(confirmationMessage);
     }
@@ -10617,7 +10638,7 @@ var registerFocusEventCallback = (target, userData, useCapture, callbackfunc, ev
     var focusEvent = JSEvents.focusEvent;
     stringToUTF8(nodeName, focusEvent + 0, 128);
     stringToUTF8(id, focusEvent + 128, 128);
-    if (targetThread) __emscripten_run_callback_on_thread(targetThread, callbackfunc, eventTypeId, focusEvent, eventSize, userData); else if (getWasmTableEntry(callbackfunc)(eventTypeId, focusEvent, userData)) e.preventDefault();
+    if (targetThread) __emscripten_run_callback_on_thread(targetThread, callbackfunc, eventTypeId, focusEvent, eventSize, userData); else if (((a1, a2, a3) => {})(eventTypeId, focusEvent, userData)) e.preventDefault();
   };
   var eventHandler = {
     target: findEventTarget(target),
@@ -10685,7 +10706,7 @@ var registerFullscreenChangeEventCallback = (target, userData, useCapture, callb
   var fullscreenChangeEventHandlerFunc = e => {
     var fullscreenChangeEvent = JSEvents.fullscreenChangeEvent;
     fillFullscreenChangeEventData(fullscreenChangeEvent);
-    if (targetThread) __emscripten_run_callback_on_thread(targetThread, callbackfunc, eventTypeId, fullscreenChangeEvent, eventSize, userData); else if (getWasmTableEntry(callbackfunc)(eventTypeId, fullscreenChangeEvent, userData)) e.preventDefault();
+    if (targetThread) __emscripten_run_callback_on_thread(targetThread, callbackfunc, eventTypeId, fullscreenChangeEvent, eventSize, userData); else if (((a1, a2, a3) => {})(eventTypeId, fullscreenChangeEvent, userData)) e.preventDefault();
   };
   var eventHandler = {
     target,
@@ -10719,7 +10740,7 @@ var registerGamepadEventCallback = (target, userData, useCapture, callbackfunc, 
   var gamepadEventHandlerFunc = e => {
     var gamepadEvent = JSEvents.gamepadEvent;
     fillGamepadEventData(gamepadEvent, e["gamepad"]);
-    if (targetThread) __emscripten_run_callback_on_thread(targetThread, callbackfunc, eventTypeId, gamepadEvent, eventSize, userData); else if (getWasmTableEntry(callbackfunc)(eventTypeId, gamepadEvent, userData)) e.preventDefault();
+    if (targetThread) __emscripten_run_callback_on_thread(targetThread, callbackfunc, eventTypeId, gamepadEvent, eventSize, userData); else if (((a1, a2, a3) => {})(eventTypeId, gamepadEvent, userData)) e.preventDefault();
   };
   var eventHandler = {
     target: findEventTarget(target),
@@ -10771,7 +10792,7 @@ var registerKeyEventCallback = (target, userData, useCapture, callbackfunc, even
     stringToUTF8(e.code || "", keyEventData + 64, 32);
     stringToUTF8(e.char || "", keyEventData + 96, 32);
     stringToUTF8(e.locale || "", keyEventData + 128, 32);
-    if (targetThread) __emscripten_run_callback_on_thread(targetThread, callbackfunc, eventTypeId, keyEventData, eventSize, userData); else if (getWasmTableEntry(callbackfunc)(eventTypeId, keyEventData, userData)) e.preventDefault();
+    if (targetThread) __emscripten_run_callback_on_thread(targetThread, callbackfunc, eventTypeId, keyEventData, eventSize, userData); else if (((a1, a2, a3) => {})(eventTypeId, keyEventData, userData)) e.preventDefault();
   };
   var eventHandler = {
     target: findEventTarget(target),
@@ -10807,7 +10828,7 @@ function _emscripten_set_keyup_callback_on_thread(target, userData, useCapture, 
 _emscripten_set_keyup_callback_on_thread.sig = "ippipp";
 
 var _emscripten_set_main_loop = (func, fps, simulateInfiniteLoop) => {
-  var iterFunc = getWasmTableEntry(func);
+  var iterFunc = (() => {});
   setMainLoop(iterFunc, fps, simulateInfiniteLoop);
 };
 
@@ -10844,7 +10865,7 @@ var registerMouseEventCallback = (target, userData, useCapture, callbackfunc, ev
     fillMouseEventData(JSEvents.mouseEvent, e, target);
     if (targetThread) {
       __emscripten_run_callback_on_thread(targetThread, callbackfunc, eventTypeId, JSEvents.mouseEvent, eventSize, userData);
-    } else if (getWasmTableEntry(callbackfunc)(eventTypeId, JSEvents.mouseEvent, userData)) e.preventDefault();
+    } else if (((a1, a2, a3) => {})(eventTypeId, JSEvents.mouseEvent, userData)) e.preventDefault();
   };
   var eventHandler = {
     target,
@@ -10913,7 +10934,7 @@ var registerPointerlockChangeEventCallback = (target, userData, useCapture, call
   var pointerlockChangeEventHandlerFunc = e => {
     var pointerlockChangeEvent = JSEvents.pointerlockChangeEvent;
     fillPointerlockChangeEventData(pointerlockChangeEvent);
-    if (targetThread) __emscripten_run_callback_on_thread(targetThread, callbackfunc, eventTypeId, pointerlockChangeEvent, eventSize, userData); else if (getWasmTableEntry(callbackfunc)(eventTypeId, pointerlockChangeEvent, userData)) e.preventDefault();
+    if (targetThread) __emscripten_run_callback_on_thread(targetThread, callbackfunc, eventTypeId, pointerlockChangeEvent, eventSize, userData); else if (((a1, a2, a3) => {})(eventTypeId, pointerlockChangeEvent, userData)) e.preventDefault();
   };
   var eventHandler = {
     target,
@@ -10970,7 +10991,7 @@ var registerUiEventCallback = (target, userData, useCapture, callbackfunc, event
     (growMemViews(), HEAP32)[(((uiEvent) + (28)) >> 2)] = pageXOffset | 0;
     // scroll offsets are float
     (growMemViews(), HEAP32)[(((uiEvent) + (32)) >> 2)] = pageYOffset | 0;
-    if (targetThread) __emscripten_run_callback_on_thread(targetThread, callbackfunc, eventTypeId, uiEvent, eventSize, userData); else if (getWasmTableEntry(callbackfunc)(eventTypeId, uiEvent, userData)) e.preventDefault();
+    if (targetThread) __emscripten_run_callback_on_thread(targetThread, callbackfunc, eventTypeId, uiEvent, eventSize, userData); else if (((a1, a2, a3) => {})(eventTypeId, uiEvent, userData)) e.preventDefault();
   };
   var eventHandler = {
     target,
@@ -11045,7 +11066,7 @@ var registerTouchEventCallback = (target, userData, useCapture, callbackfunc, ev
       }
     }
     (growMemViews(), HEAP32)[(((touchEvent) + (8)) >> 2)] = numTouches;
-    if (targetThread) __emscripten_run_callback_on_thread(targetThread, callbackfunc, eventTypeId, touchEvent, eventSize, userData); else if (getWasmTableEntry(callbackfunc)(eventTypeId, touchEvent, userData)) e.preventDefault();
+    if (targetThread) __emscripten_run_callback_on_thread(targetThread, callbackfunc, eventTypeId, touchEvent, eventSize, userData); else if (((a1, a2, a3) => {})(eventTypeId, touchEvent, userData)) e.preventDefault();
   };
   var eventHandler = {
     target,
@@ -11103,7 +11124,7 @@ var registerVisibilityChangeEventCallback = (target, userData, useCapture, callb
   var visibilityChangeEventHandlerFunc = e => {
     var visibilityChangeEvent = JSEvents.visibilityChangeEvent;
     fillVisibilityChangeEventData(visibilityChangeEvent);
-    if (targetThread) __emscripten_run_callback_on_thread(targetThread, callbackfunc, eventTypeId, visibilityChangeEvent, eventSize, userData); else if (getWasmTableEntry(callbackfunc)(eventTypeId, visibilityChangeEvent, userData)) e.preventDefault();
+    if (targetThread) __emscripten_run_callback_on_thread(targetThread, callbackfunc, eventTypeId, visibilityChangeEvent, eventSize, userData); else if (((a1, a2, a3) => {})(eventTypeId, visibilityChangeEvent, userData)) e.preventDefault();
   };
   var eventHandler = {
     target,
@@ -11139,7 +11160,7 @@ var registerWheelEventCallback = (target, userData, useCapture, callbackfunc, ev
     (growMemViews(), HEAPF64)[(((wheelEvent) + (72)) >> 3)] = e["deltaY"];
     (growMemViews(), HEAPF64)[(((wheelEvent) + (80)) >> 3)] = e["deltaZ"];
     (growMemViews(), HEAP32)[(((wheelEvent) + (88)) >> 2)] = e["deltaMode"];
-    if (targetThread) __emscripten_run_callback_on_thread(targetThread, callbackfunc, eventTypeId, wheelEvent, eventSize, userData); else if (getWasmTableEntry(callbackfunc)(eventTypeId, wheelEvent, userData)) e.preventDefault();
+    if (targetThread) __emscripten_run_callback_on_thread(targetThread, callbackfunc, eventTypeId, wheelEvent, eventSize, userData); else if (((a1, a2, a3) => {})(eventTypeId, wheelEvent, userData)) e.preventDefault();
   };
   var eventHandler = {
     target,
@@ -12504,7 +12525,7 @@ var __Unwind_Backtrace = (func, arg) => {
   var trace = getCallstack();
   var parts = trace.split("\n");
   for (var i = 0; i < parts.length; i++) {
-    var ret = getWasmTableEntry(func)(0, arg);
+    var ret = ((a1, a2) => {})(0, arg);
     if (ret !== 0) return;
   }
 };
@@ -12572,7 +12593,7 @@ var asmjsMangle = x => {
   if (x == "__main_argc_argv") {
     x = "main";
   }
-  return "_" + x;
+  return x.startsWith("dynCall_") ? x : "_" + x;
 };
 
 var __emscripten_fs_load_embedded_files = ptr => {
@@ -12920,7 +12941,7 @@ var registerDeviceOrientationEventCallback = (target, userData, useCapture, call
     // TODO: Thread-safety with respect to emscripten_get_deviceorientation_status()
     if (targetThread) {
       __emscripten_run_callback_on_thread(targetThread, callbackfunc, eventTypeId, JSEvents.deviceOrientationEvent, eventSize, userData);
-    } else if (getWasmTableEntry(callbackfunc)(eventTypeId, JSEvents.deviceOrientationEvent, userData)) e.preventDefault();
+    } else if (((a1, a2, a3) => {})(eventTypeId, JSEvents.deviceOrientationEvent, userData)) e.preventDefault();
   };
   var eventHandler = {
     target: findEventTarget(target),
@@ -12973,7 +12994,7 @@ var registerDeviceMotionEventCallback = (target, userData, useCapture, callbackf
     // TODO: Thread-safety with respect to emscripten_get_devicemotion_status()
     if (targetThread) {
       __emscripten_run_callback_on_thread(targetThread, callbackfunc, eventTypeId, JSEvents.deviceMotionEvent, eventSize, userData);
-    } else if (getWasmTableEntry(callbackfunc)(eventTypeId, JSEvents.deviceMotionEvent, userData)) e.preventDefault();
+    } else if (((a1, a2, a3) => {})(eventTypeId, JSEvents.deviceMotionEvent, userData)) e.preventDefault();
   };
   var eventHandler = {
     target: findEventTarget(target),
@@ -13031,7 +13052,7 @@ var registerOrientationChangeEventCallback = (target, userData, useCapture, call
   var orientationChangeEventHandlerFunc = e => {
     var orientationChangeEvent = JSEvents.orientationChangeEvent;
     fillOrientationChangeEventData(orientationChangeEvent);
-    if (targetThread) __emscripten_run_callback_on_thread(targetThread, callbackfunc, eventTypeId, orientationChangeEvent, eventSize, userData); else if (getWasmTableEntry(callbackfunc)(eventTypeId, orientationChangeEvent, userData)) e.preventDefault();
+    if (targetThread) __emscripten_run_callback_on_thread(targetThread, callbackfunc, eventTypeId, orientationChangeEvent, eventSize, userData); else if (((a1, a2, a3) => {})(eventTypeId, orientationChangeEvent, userData)) e.preventDefault();
   };
   var eventHandler = {
     target,
@@ -13186,7 +13207,7 @@ var softFullscreenResizeWebGLRenderTarget = () => {
     setLetterbox(canvas, topMargin, b);
   }
   if (!inCenteredWithoutScalingFullscreenMode && currentFullscreenStrategy.canvasResizedCallback) {
-    if (currentFullscreenStrategy.canvasResizedCallbackTargetThread) __emscripten_run_callback_on_thread(currentFullscreenStrategy.canvasResizedCallbackTargetThread, currentFullscreenStrategy.canvasResizedCallback, 37, 0, currentFullscreenStrategy.canvasResizedCallbackUserData); else getWasmTableEntry(currentFullscreenStrategy.canvasResizedCallback)(37, 0, currentFullscreenStrategy.canvasResizedCallbackUserData);
+    if (currentFullscreenStrategy.canvasResizedCallbackTargetThread) __emscripten_run_callback_on_thread(currentFullscreenStrategy.canvasResizedCallbackTargetThread, currentFullscreenStrategy.canvasResizedCallback, 37, 0, currentFullscreenStrategy.canvasResizedCallbackUserData); else ((a1, a2, a3) => {})(37, 0, currentFullscreenStrategy.canvasResizedCallbackUserData);
   }
 };
 
@@ -13232,7 +13253,7 @@ function _emscripten_enter_soft_fullscreen(target, fullscreenStrategy) {
     restoreHiddenElements(hiddenElements);
     removeEventListener("resize", softFullscreenResizeWebGLRenderTarget);
     if (strategy.canvasResizedCallback) {
-      if (strategy.canvasResizedCallbackTargetThread) __emscripten_run_callback_on_thread(strategy.canvasResizedCallbackTargetThread, strategy.canvasResizedCallback, 37, 0, strategy.canvasResizedCallbackUserData); else getWasmTableEntry(strategy.canvasResizedCallback)(37, 0, strategy.canvasResizedCallbackUserData);
+      if (strategy.canvasResizedCallbackTargetThread) __emscripten_run_callback_on_thread(strategy.canvasResizedCallbackTargetThread, strategy.canvasResizedCallback, 37, 0, strategy.canvasResizedCallbackUserData); else ((a1, a2, a3) => {})(37, 0, strategy.canvasResizedCallbackUserData);
     }
     currentFullscreenStrategy = 0;
   }
@@ -13241,7 +13262,7 @@ function _emscripten_enter_soft_fullscreen(target, fullscreenStrategy) {
   addEventListener("resize", softFullscreenResizeWebGLRenderTarget);
   // Inform the caller that the canvas size has changed.
   if (strategy.canvasResizedCallback) {
-    if (strategy.canvasResizedCallbackTargetThread) __emscripten_run_callback_on_thread(strategy.canvasResizedCallbackTargetThread, strategy.canvasResizedCallback, 37, 0, strategy.canvasResizedCallbackUserData); else getWasmTableEntry(strategy.canvasResizedCallback)(37, 0, strategy.canvasResizedCallbackUserData);
+    if (strategy.canvasResizedCallbackTargetThread) __emscripten_run_callback_on_thread(strategy.canvasResizedCallbackTargetThread, strategy.canvasResizedCallback, 37, 0, strategy.canvasResizedCallbackUserData); else ((a1, a2, a3) => {})(37, 0, strategy.canvasResizedCallbackUserData);
   }
   return 0;
 }
@@ -13260,7 +13281,7 @@ _emscripten_exit_soft_fullscreen.sig = "i";
 var registerPointerlockErrorEventCallback = (target, userData, useCapture, callbackfunc, eventTypeId, eventTypeString, targetThread) => {
   targetThread = JSEvents.getTargetThreadForEventCallback(targetThread);
   var pointerlockErrorEventHandlerFunc = e => {
-    if (targetThread) __emscripten_run_callback_on_thread(targetThread, callbackfunc, eventTypeId, 0, userData); else if (getWasmTableEntry(callbackfunc)(eventTypeId, 0, userData)) e.preventDefault();
+    if (targetThread) __emscripten_run_callback_on_thread(targetThread, callbackfunc, eventTypeId, 0, userData); else if (((a1, a2, a3) => {})(eventTypeId, 0, userData)) e.preventDefault();
   };
   var eventHandler = {
     target,
@@ -13347,7 +13368,7 @@ var registerBatteryEventCallback = (battery, userData, useCapture, callbackfunc,
   var batteryEventHandlerFunc = e => {
     var batteryEvent = JSEvents.batteryEvent;
     fillBatteryEventData(batteryEvent, battery);
-    if (targetThread) __emscripten_run_callback_on_thread(targetThread, callbackfunc, eventTypeId, batteryEvent, eventSize, userData); else if (getWasmTableEntry(callbackfunc)(eventTypeId, batteryEvent, userData)) e.preventDefault();
+    if (targetThread) __emscripten_run_callback_on_thread(targetThread, callbackfunc, eventTypeId, batteryEvent, eventSize, userData); else if (((a1, a2, a3) => {})(eventTypeId, batteryEvent, userData)) e.preventDefault();
   };
   var eventHandler = {
     target: battery,
@@ -13402,7 +13423,7 @@ var _emscripten_html5_remove_all_event_listeners = () => JSEvents.removeAllEvent
 
 _emscripten_html5_remove_all_event_listeners.sig = "v";
 
-var _emscripten_request_animation_frame = (cb, userData) => requestAnimationFrame(timeStamp => getWasmTableEntry(cb)(timeStamp, userData));
+var _emscripten_request_animation_frame = (cb, userData) => requestAnimationFrame(timeStamp => ((a1, a2) => {})(timeStamp, userData));
 
 _emscripten_request_animation_frame.sig = "ipp";
 
@@ -13412,7 +13433,7 @@ _emscripten_cancel_animation_frame.sig = "vi";
 
 var _emscripten_request_animation_frame_loop = (cb, userData) => {
   function tick(timeStamp) {
-    if (getWasmTableEntry(cb)(timeStamp, userData)) {
+    if (((a1, a2) => {})(timeStamp, userData)) {
       requestAnimationFrame(tick);
     }
   }
@@ -13745,7 +13766,7 @@ var _emscripten_set_immediate = (cb, userData) => {
   runtimeKeepalivePush();
   return emSetImmediate(() => {
     runtimeKeepalivePop();
-    callUserCallback(() => getWasmTableEntry(cb)(userData));
+    callUserCallback(() => (a1 => {})(userData));
   });
 };
 
@@ -13761,7 +13782,7 @@ _emscripten_clear_immediate.sig = "vi";
 var _emscripten_set_immediate_loop = (cb, userData) => {
   function tick() {
     callUserCallback(() => {
-      if (getWasmTableEntry(cb)(userData)) {
+      if ((a1 => {})(userData)) {
         emSetImmediate(tick);
       } else {
         runtimeKeepalivePop();
@@ -13774,7 +13795,7 @@ var _emscripten_set_immediate_loop = (cb, userData) => {
 
 _emscripten_set_immediate_loop.sig = "vpp";
 
-var _emscripten_set_timeout = (cb, msecs, userData) => safeSetTimeout(() => getWasmTableEntry(cb)(userData), msecs);
+var _emscripten_set_timeout = (cb, msecs, userData) => safeSetTimeout(() => (a1 => {})(userData), msecs);
 
 _emscripten_set_timeout.sig = "ipdp";
 
@@ -13788,7 +13809,7 @@ var _emscripten_set_timeout_loop = (cb, msecs, userData) => {
     var n = t + msecs;
     runtimeKeepalivePop();
     callUserCallback(() => {
-      if (getWasmTableEntry(cb)(t, userData)) {
+      if (((a1, a2) => {})(t, userData)) {
         runtimeKeepalivePush();
         // Save a little bit of code space: modern browsers should treat
         // negative setTimeout as timeout of 0
@@ -13809,7 +13830,7 @@ _emscripten_set_timeout_loop.sig = "vpdp";
 var _emscripten_set_interval = (cb, msecs, userData) => {
   runtimeKeepalivePush();
   return setInterval(() => {
-    callUserCallback(() => getWasmTableEntry(cb)(userData));
+    callUserCallback(() => (a1 => {})(userData));
   }, msecs);
 };
 
@@ -13823,7 +13844,7 @@ var _emscripten_clear_interval = id => {
 _emscripten_clear_interval.sig = "vi";
 
 var _emscripten_async_call = (func, arg, millis) => {
-  var wrapper = () => getWasmTableEntry(func)(arg);
+  var wrapper = () => (a1 => {})(arg);
   if (millis >= 0 || ENVIRONMENT_IS_NODE) {
     safeSetTimeout(wrapper, millis);
   } else {
@@ -13851,7 +13872,7 @@ var _emscripten_get_main_loop_timing = (mode, value) => {
 _emscripten_get_main_loop_timing.sig = "vpp";
 
 var _emscripten_set_main_loop_arg = (func, arg, fps, simulateInfiniteLoop) => {
-  var iterFunc = () => getWasmTableEntry(func)(arg);
+  var iterFunc = () => (a1 => {})(arg);
   setMainLoop(iterFunc, fps, simulateInfiniteLoop, arg);
 };
 
@@ -13868,7 +13889,7 @@ _emscripten_resume_main_loop.sig = "v";
 var __emscripten_push_main_loop_blocker = (func, arg, name) => {
   MainLoop.queue.push({
     func: () => {
-      getWasmTableEntry(func)(arg);
+      (a1 => {})(arg);
     },
     name: UTF8ToString(name),
     counted: true
@@ -13881,7 +13902,7 @@ __emscripten_push_main_loop_blocker.sig = "vppp";
 var __emscripten_push_uncounted_main_loop_blocker = (func, arg, name) => {
   MainLoop.queue.push({
     func: () => {
-      getWasmTableEntry(func)(arg);
+      (a1 => {})(arg);
     },
     name: UTF8ToString(name),
     counted: false
@@ -13915,7 +13936,7 @@ var makePromiseCallback = (callback, userData) => value => {
   var resultPtr = stackAlloc(POINTER_SIZE);
   (growMemViews(), HEAPU32)[((resultPtr) >> 2)] = 0;
   try {
-    var result = getWasmTableEntry(callback)(resultPtr, userData, value);
+    var result = ((a1, a2, a3) => {})(resultPtr, userData, value);
     var resultVal = (growMemViews(), HEAPU32)[((resultPtr) >> 2)];
   } catch (e) {
     // If the thrown value is potentially a valid pointer, use it as the
@@ -14198,10 +14219,10 @@ var _emscripten_run_preload_plugins = function(file, onload, onerror) {
   // Here we assume data.object.contents is a TypedArray.
   FS.createPreloadedFile(PATH.dirname(_file), PATH.basename(_file), data.object.contents, /*canRead=*/ true, /*canWrite=*/ true, () => {
     runtimeKeepalivePop();
-    if (onload) getWasmTableEntry(onload)(file);
+    if (onload) (a1 => {})(file);
   }, () => {
     runtimeKeepalivePop();
-    if (onerror) getWasmTableEntry(onerror)(file);
+    if (onerror) (a1 => {})(file);
   }, /*dontCreateFile=*/ true);
   return 0;
 };
@@ -14218,10 +14239,10 @@ var _emscripten_run_preload_plugins_data = function(data, size, suffix, arg, onl
   var cname = stringToNewUTF8(name);
   FS.createPreloadedFile("/", name, (growMemViews(), HEAPU8).subarray((data), data + size), true, true, () => {
     runtimeKeepalivePop();
-    if (onload) getWasmTableEntry(onload)(arg, cname);
+    if (onload) ((a1, a2) => {})(arg, cname);
   }, () => {
     runtimeKeepalivePop();
-    if (onerror) getWasmTableEntry(onerror)(arg);
+    if (onerror) (a1 => {})(arg);
   }, true);
 };
 
@@ -14238,14 +14259,14 @@ var _emscripten_async_load_script = async (url, onload, onerror) => {
   url = UTF8ToString(url);
   if (ENVIRONMENT_IS_PTHREAD) {
     err(`emscripten_async_load_script("${url}") failed, emscripten_async_load_script is currently not available in pthreads!`);
-    onerror && getWasmTableEntry(onerror)();
+    onerror && (() => {})();
     return;
   }
   runtimeKeepalivePush();
   var loadDone = () => {
     runtimeKeepalivePop();
     if (onload) {
-      var onloadCallback = () => callUserCallback(getWasmTableEntry(onload));
+      var onloadCallback = () => callUserCallback((() => {}));
       if (runDependencies > 0) {
         dependenciesFulfilled = onloadCallback;
       } else {
@@ -14256,7 +14277,7 @@ var _emscripten_async_load_script = async (url, onload, onerror) => {
   var loadError = () => {
     runtimeKeepalivePop();
     if (onerror) {
-      callUserCallback(getWasmTableEntry(onerror));
+      callUserCallback((() => {}));
     }
   };
   if (ENVIRONMENT_IS_NODE) {
@@ -14375,7 +14396,7 @@ function _emscripten_destroy_worker(id) {
 
 _emscripten_destroy_worker.sig = "vi";
 
-function _emscripten_call_worker(id, funcName, data, size, callback, arg) {
+var _emscripten_call_worker = function(id, funcName, data, size, callback, arg) {
   if (ENVIRONMENT_IS_PTHREAD) return proxyToMainThread(133, 0, 1, id, funcName, data, size, callback, arg);
   funcName = UTF8ToString(funcName);
   var info = Browser.workers[id];
@@ -14388,7 +14409,7 @@ function _emscripten_call_worker(id, funcName, data, size, callback, arg) {
     runtimeKeepalivePush();
     callbackId = info.callbacks.length;
     info.callbacks.push({
-      func: getWasmTableEntry(callback),
+      func: ((a1, a2, a3) => {}),
       arg
     });
     info.awaited++;
@@ -14403,7 +14424,7 @@ function _emscripten_call_worker(id, funcName, data, size, callback, arg) {
   } else {
     info.worker.postMessage(transferObject);
   }
-}
+};
 
 _emscripten_call_worker.sig = "vippipp";
 
@@ -14474,7 +14495,7 @@ var _emscripten_async_wget = function(url, file, onload, onerror) {
   function doCallback(callback) {
     if (callback) {
       runtimeKeepalivePop();
-      callUserCallback(() => withStackSave(() => getWasmTableEntry(callback)(stringToUTF8OnStack(_file))));
+      callUserCallback(() => withStackSave(() => (a1 => {})(stringToUTF8OnStack(_file))));
     }
   }
   var destinationDirectory = PATH.dirname(_file);
@@ -14502,14 +14523,14 @@ var _emscripten_async_wget_data = async function(url, userdata, onload, onerror)
     callUserCallback(() => {
       var buffer = _malloc(byteArray.length);
       (growMemViews(), HEAPU8).set(byteArray, buffer);
-      getWasmTableEntry(onload)(userdata, buffer, byteArray.length);
+      ((a1, a2, a3) => {})(userdata, buffer, byteArray.length);
       _free(buffer);
     });
   } catch (e) {
     if (onerror) {
       runtimeKeepalivePop();
       callUserCallback(() => {
-        getWasmTableEntry(onerror)(userdata);
+        (a1 => {})(userdata);
       });
     }
   }
@@ -14544,25 +14565,25 @@ var _emscripten_async_wget2 = function(url, file, request, param, userdata, onlo
       FS.createDataFile(_file.slice(0, index), _file.slice(index + 1), new Uint8Array(/** @type{ArrayBuffer}*/ (http.response)), true, true, false);
       if (onload) {
         var sp = stackSave();
-        getWasmTableEntry(onload)(handle, userdata, stringToUTF8OnStack(_file));
+        ((a1, a2, a3) => {})(handle, userdata, stringToUTF8OnStack(_file));
         stackRestore(sp);
       }
     } else {
-      if (onerror) getWasmTableEntry(onerror)(handle, userdata, http.status);
+      if (onerror) ((a1, a2, a3) => {})(handle, userdata, http.status);
     }
     delete wget.wgetRequests[handle];
   };
   // ERROR
   http.onerror = e => {
     runtimeKeepalivePop();
-    if (onerror) getWasmTableEntry(onerror)(handle, userdata, http.status);
+    if (onerror) ((a1, a2, a3) => {})(handle, userdata, http.status);
     delete wget.wgetRequests[handle];
   };
   // PROGRESS
   http.onprogress = e => {
     if (e.lengthComputable || (e.lengthComputable === undefined && e.total != 0)) {
       var percentComplete = (e.loaded / e.total) * 100;
-      if (onprogress) getWasmTableEntry(onprogress)(handle, userdata, percentComplete);
+      if (onprogress) ((a1, a2, a3) => {})(handle, userdata, percentComplete);
     }
   };
   // ABORT
@@ -14599,7 +14620,7 @@ function _emscripten_async_wget2_data(url, request, param, userdata, free, onloa
       if (http.statusText) {
         statusText = stringToUTF8OnStack(http.statusText);
       }
-      getWasmTableEntry(onerror)(handle, userdata, http.status, statusText);
+      ((a1, a2, a3, a4) => {})(handle, userdata, http.status, statusText);
       stackRestore(sp);
     }
   }
@@ -14609,7 +14630,7 @@ function _emscripten_async_wget2_data(url, request, param, userdata, free, onloa
       var byteArray = new Uint8Array(/** @type{ArrayBuffer} */ (http.response));
       var buffer = _malloc(byteArray.length);
       (growMemViews(), HEAPU8).set(byteArray, buffer);
-      if (onload) getWasmTableEntry(onload)(handle, userdata, buffer, byteArray.length);
+      if (onload) ((a1, a2, a3, a4) => {})(handle, userdata, buffer, byteArray.length);
       if (free) _free(buffer);
     } else {
       onerrorjs();
@@ -14623,7 +14644,7 @@ function _emscripten_async_wget2_data(url, request, param, userdata, free, onloa
   };
   // PROGRESS
   http.onprogress = e => {
-    if (onprogress) getWasmTableEntry(onprogress)(handle, userdata, e.loaded, e.lengthComputable || e.lengthComputable === undefined ? e.total : 0);
+    if (onprogress) ((a1, a2, a3, a4) => {})(handle, userdata, e.loaded, e.lengthComputable || e.lengthComputable === undefined ? e.total : 0);
   };
   // ABORT
   http.onabort = e => {
@@ -16597,10 +16618,10 @@ var _setNetworkCallback = (event, userData, callback) => {
       if (event === "error") {
         withStackSave(() => {
           var msg = stringToUTF8OnStack(data[2]);
-          getWasmTableEntry(callback)(data[0], data[1], msg, userData);
+          ((a1, a2, a3, a4) => {})(data[0], data[1], msg, userData);
         });
       } else {
-        getWasmTableEntry(callback)(data, userData);
+        ((a1, a2) => {})(data, userData);
       }
     });
   }
@@ -17467,7 +17488,7 @@ _emscripten_supports_offscreencanvas.sig = "i";
 var registerWebGlEventCallback = (target, userData, useCapture, callbackfunc, eventTypeId, eventTypeString, targetThread) => {
   targetThread = JSEvents.getTargetThreadForEventCallback(targetThread);
   var webGlEventHandlerFunc = e => {
-    if (targetThread) __emscripten_run_callback_on_thread(targetThread, callbackfunc, eventTypeId, 0, userData); else if (getWasmTableEntry(callbackfunc)(eventTypeId, 0, userData)) e.preventDefault();
+    if (targetThread) __emscripten_run_callback_on_thread(targetThread, callbackfunc, eventTypeId, 0, userData); else if (((a1, a2, a3) => {})(eventTypeId, 0, userData)) e.preventDefault();
   };
   var eventHandler = {
     target: findEventTarget(target),
@@ -21880,7 +21901,7 @@ var _glutPostRedisplay = function() {
     GLUT.requestedAnimationFrame = true;
     MainLoop.requestAnimationFrame(() => {
       GLUT.requestedAnimationFrame = false;
-      MainLoop.runIter(() => getWasmTableEntry(GLUT.displayFunc)());
+      MainLoop.runIter(() => (() => {})());
     });
   }
 };
@@ -21928,11 +21949,11 @@ var GLUT = {
     if (GLUT.buttons == 0 && event.target == Browser.getCanvas() && GLUT.passiveMotionFunc) {
       event.preventDefault();
       GLUT.saveModifiers(event);
-      getWasmTableEntry(GLUT.passiveMotionFunc)(lastX, lastY);
+      ((a1, a2) => {})(lastX, lastY);
     } else if (GLUT.buttons != 0 && GLUT.motionFunc) {
       event.preventDefault();
       GLUT.saveModifiers(event);
-      getWasmTableEntry(GLUT.motionFunc)(lastX, lastY);
+      ((a1, a2) => {})(lastX, lastY);
     }
   },
   getSpecialKey: keycode => {
@@ -22132,14 +22153,14 @@ var GLUT = {
         if (GLUT.specialFunc) {
           event.preventDefault();
           GLUT.saveModifiers(event);
-          getWasmTableEntry(GLUT.specialFunc)(key, Browser.mouseX, Browser.mouseY);
+          ((a1, a2, a3) => {})(key, Browser.mouseX, Browser.mouseY);
         }
       } else {
         key = GLUT.getASCIIKey(event);
         if (key !== null && GLUT.keyboardFunc) {
           event.preventDefault();
           GLUT.saveModifiers(event);
-          getWasmTableEntry(GLUT.keyboardFunc)(key, Browser.mouseX, Browser.mouseY);
+          ((a1, a2, a3) => {})(key, Browser.mouseX, Browser.mouseY);
         }
       }
     }
@@ -22151,14 +22172,14 @@ var GLUT = {
         if (GLUT.specialUpFunc) {
           event.preventDefault();
           GLUT.saveModifiers(event);
-          getWasmTableEntry(GLUT.specialUpFunc)(key, Browser.mouseX, Browser.mouseY);
+          ((a1, a2, a3) => {})(key, Browser.mouseX, Browser.mouseY);
         }
       } else {
         key = GLUT.getASCIIKey(event);
         if (key !== null && GLUT.keyboardUpFunc) {
           event.preventDefault();
           GLUT.saveModifiers(event);
-          getWasmTableEntry(GLUT.keyboardUpFunc)(key, Browser.mouseX, Browser.mouseY);
+          ((a1, a2, a3) => {})(key, Browser.mouseX, Browser.mouseY);
         }
       }
     }
@@ -22198,7 +22219,7 @@ var GLUT = {
       } catch (e) {}
       event.preventDefault();
       GLUT.saveModifiers(event);
-      getWasmTableEntry(GLUT.mouseFunc)(event["button"], 0, Browser.mouseX, Browser.mouseY);
+      ((a1, a2, a3, a4) => {})(event["button"], 0, Browser.mouseX, Browser.mouseY);
     }
   },
   onMouseButtonUp: event => {
@@ -22207,7 +22228,7 @@ var GLUT = {
     if (GLUT.mouseFunc) {
       event.preventDefault();
       GLUT.saveModifiers(event);
-      getWasmTableEntry(GLUT.mouseFunc)(event["button"], 1, Browser.mouseX, Browser.mouseY);
+      ((a1, a2, a3, a4) => {})(event["button"], 1, Browser.mouseX, Browser.mouseY);
     }
   },
   onMouseWheel: event => {
@@ -22225,7 +22246,7 @@ var GLUT = {
     if (GLUT.mouseFunc) {
       event.preventDefault();
       GLUT.saveModifiers(event);
-      getWasmTableEntry(GLUT.mouseFunc)(button, 0, Browser.mouseX, Browser.mouseY);
+      ((a1, a2, a3, a4) => {})(button, 0, Browser.mouseX, Browser.mouseY);
     }
   },
   onFullscreenEventChange: event => {
@@ -22247,7 +22268,7 @@ var GLUT = {
     // Just call it once here.
     /* Can't call _glutReshapeWindow as that requests cancelling fullscreen. */ if (GLUT.reshapeFunc) {
       // out("GLUT.reshapeFunc (from FS): " + width + ", " + height);
-      getWasmTableEntry(GLUT.reshapeFunc)(width, height);
+      ((a1, a2) => {})(width, height);
     }
     _glutPostRedisplay();
   },
@@ -22297,7 +22318,7 @@ function _glutInit(argcp, argv) {
   // Resize callback stage 2: updateResizeListeners notifies reshapeFunc
   Browser.resizeListeners.push((width, height) => {
     if (GLUT.reshapeFunc) {
-      getWasmTableEntry(GLUT.reshapeFunc)(width, height);
+      ((a1, a2) => {})(width, height);
     }
   });
   addOnExit(() => {
@@ -22391,11 +22412,11 @@ var _glutGet = type => {
 
 _glutGet.sig = "ii";
 
-function _glutIdleFunc(func) {
+var _glutIdleFunc = function(func) {
   if (ENVIRONMENT_IS_PTHREAD) return proxyToMainThread(268, 0, 1, func);
   function callback() {
     if (GLUT.idleFunc) {
-      getWasmTableEntry(GLUT.idleFunc)();
+      (() => {})();
       safeSetTimeout(callback, 4);
     }
   }
@@ -22403,13 +22424,13 @@ function _glutIdleFunc(func) {
     safeSetTimeout(callback, 0);
   }
   GLUT.idleFunc = func;
-}
+};
 
 _glutIdleFunc.sig = "vp";
 
 var _glutTimerFunc = function(msec, func, value) {
   if (ENVIRONMENT_IS_PTHREAD) return proxyToMainThread(269, 0, 1, msec, func, value);
-  return safeSetTimeout(() => getWasmTableEntry(func)(value), msec);
+  return safeSetTimeout(() => (a1 => {})(value), msec);
 };
 
 _glutTimerFunc.sig = "vipi";
@@ -22601,17 +22622,17 @@ function _glutDestroyWindow(name) {
 
 _glutDestroyWindow.sig = "vi";
 
-function _glutReshapeWindow(width, height) {
+var _glutReshapeWindow = function(width, height) {
   if (ENVIRONMENT_IS_PTHREAD) return proxyToMainThread(282, 0, 1, width, height);
   Browser.exitFullscreen();
   Browser.setCanvasSize(width, height, true);
   // N.B. GLUT.reshapeFunc is also registered as a canvas resize callback.
   // Just call it once here.
   if (GLUT.reshapeFunc) {
-    getWasmTableEntry(GLUT.reshapeFunc)(width, height);
+    ((a1, a2) => {})(width, height);
   }
   _glutPostRedisplay();
-}
+};
 
 _glutReshapeWindow.sig = "vii";
 
@@ -23246,12 +23267,12 @@ var _emscripten_idb_async_load = (db, id, arg, onload, onerror) => {
     runtimeKeepalivePop();
     callUserCallback(() => {
       if (error) {
-        if (onerror) getWasmTableEntry(onerror)(arg);
+        if (onerror) (a1 => {})(arg);
         return;
       }
       var buffer = _malloc(byteArray.length);
       (growMemViews(), HEAPU8).set(byteArray, buffer);
-      getWasmTableEntry(onload)(arg, buffer, byteArray.length);
+      ((a1, a2, a3) => {})(arg, buffer, byteArray.length);
       _free(buffer);
     });
   });
@@ -23268,10 +23289,10 @@ var _emscripten_idb_async_store = (db, id, ptr, num, arg, onstore, onerror) => {
     runtimeKeepalivePop();
     callUserCallback(() => {
       if (error) {
-        if (onerror) getWasmTableEntry(onerror)(arg);
+        if (onerror) (a1 => {})(arg);
         return;
       }
-      if (onstore) getWasmTableEntry(onstore)(arg);
+      if (onstore) (a1 => {})(arg);
     });
   });
 };
@@ -23284,10 +23305,10 @@ var _emscripten_idb_async_delete = (db, id, arg, ondelete, onerror) => {
     runtimeKeepalivePop();
     callUserCallback(() => {
       if (error) {
-        if (onerror) getWasmTableEntry(onerror)(arg);
+        if (onerror) (a1 => {})(arg);
         return;
       }
-      if (ondelete) getWasmTableEntry(ondelete)(arg);
+      if (ondelete) (a1 => {})(arg);
     });
   });
 };
@@ -23300,10 +23321,10 @@ var _emscripten_idb_async_exists = (db, id, arg, oncheck, onerror) => {
     runtimeKeepalivePop();
     callUserCallback(() => {
       if (error) {
-        if (onerror) getWasmTableEntry(onerror)(arg);
+        if (onerror) (a1 => {})(arg);
         return;
       }
-      if (oncheck) getWasmTableEntry(oncheck)(arg, exists);
+      if (oncheck) ((a1, a2) => {})(arg, exists);
     });
   });
 };
@@ -23316,10 +23337,10 @@ var _emscripten_idb_async_clear = (db, arg, onclear, onerror) => {
     runtimeKeepalivePop();
     callUserCallback(() => {
       if (error) {
-        if (onerror) getWasmTableEntry(onerror)(arg);
+        if (onerror) (a1 => {})(arg);
         return;
       }
-      if (onclear) getWasmTableEntry(onclear)(arg);
+      if (onclear) (a1 => {})(arg);
     });
   });
 };
@@ -23411,7 +23432,7 @@ var _emscripten_atomic_wait_async = (addr, val, asyncWaitFinished, userData, max
     if (liveAtomicWaitAsyncs[counter]) {
       runtimeKeepalivePop();
       delete liveAtomicWaitAsyncs[counter];
-      callUserCallback(() => getWasmTableEntry(asyncWaitFinished)(addr, val, atomicWaitStates.indexOf(value), userData));
+      callUserCallback(() => ((a1, a2, a3, a4) => {})(addr, val, atomicWaitStates.indexOf(value), userData));
     }
   });
   return -counter;
