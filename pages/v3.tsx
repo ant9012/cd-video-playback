@@ -40,6 +40,8 @@ function loadFavicon(href: string) {
 // ---------------------
 
 export default function V3() {
+    const [canvasReady, setCanvasReady] = React.useState(false);
+
     React.useEffect(() => {
         // ---- Favicon ----
         loadFavicon('./icons/CD.ico');
@@ -62,6 +64,9 @@ export default function V3() {
                 console.error('EngineFS init failed:', error);
             }
         };
+
+        // ---- Mark canvas as ready so scripts load after it exists ----
+        setCanvasReady(true);
     }, []);
 
     return (
@@ -72,19 +77,15 @@ export default function V3() {
                     className='engineCanvas'
                     id='canvas'
                     onContextMenu={(e) => e.preventDefault()}
-                    ref={(el) => {
-                        if (el) {
-                            el.addEventListener('webglcontextlost', (e) => {
-                                alert('WebGL context lost. You will need to reload the page.');
-                                e.preventDefault();
-                            });
-                        }
-                    }}
                 />
             </ThemeProvider>
             <Script src='./coi-serviceworker.js' strategy='beforeInteractive' />
-            <Script src='./lib/RSDKv3.js' />
-            <Script src='./modules/RSDKv3.js' />
+            {canvasReady && (
+                <>
+                    <Script src='./lib/RSDKv3.js' />
+                    <Script src='./modules/RSDKv3.js' />
+                </>
+            )}
         </div>
     )
 }
