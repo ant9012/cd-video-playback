@@ -40,20 +40,9 @@ function loadFavicon(href: string) {
 // ---------------------
 
 export default function V3() {
-    const [canvasReady, setCanvasReady] = React.useState(false);
-
     React.useEffect(() => {
         // ---- Favicon ----
         loadFavicon('./icons/CD.ico');
-
-        // ---- Viewport meta (App Router doesn't support next/head) ----
-        let meta: HTMLMetaElement | null = document.querySelector("meta[name='viewport']");
-        if (!meta) {
-            meta = document.createElement('meta');
-            meta.name = 'viewport';
-            document.head.appendChild(meta);
-        }
-        meta.content = 'initial-scale=1, viewport-fit=cover';
 
         // ---- Engine FS init ----
         window.TS_InitFS = async (p: string, f: any) => {
@@ -64,9 +53,6 @@ export default function V3() {
                 console.error('EngineFS init failed:', error);
             }
         };
-
-        // ---- Mark canvas as ready so scripts load after it exists ----
-        setCanvasReady(true);
     }, []);
 
     return (
@@ -80,12 +66,8 @@ export default function V3() {
                 />
             </ThemeProvider>
             <Script src='./coi-serviceworker.js' strategy='beforeInteractive' />
-            {canvasReady && (
-                <>
-                    <Script src='./lib/RSDKv3.js' />
-                    <Script src='./modules/RSDKv3.js' />
-                </>
-            )}
+            <Script src='./lib/RSDKv3.js' strategy='lazyOnload' />
+            <Script src='./modules/RSDKv3.js' strategy='lazyOnload' />
         </div>
     )
 }
