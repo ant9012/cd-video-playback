@@ -3,10 +3,10 @@ var Module = {
         TS_InitFS('RSDKv3',
             function () {
                 console.log('EngineFS initialized');
-                const splash = document.getElementById("splash");
+                var splash = document.getElementById("splash");
                 if (splash) {
                     splash.style.opacity = 0;
-                    setTimeout(() => { splash.remove(); }, 1000);
+                    setTimeout(function () { splash.remove(); }, 1000);
                 }
                 RSDK_Init();
             });
@@ -25,7 +25,6 @@ var Module = {
         };
     })(),
     canvas: (function () {
-        // Try to get canvas now, if it exists
         var canvas = document.getElementById('canvas');
         if (canvas) {
             canvas.addEventListener("webglcontextlost", function (e) {
@@ -68,9 +67,9 @@ window.onerror = function () {
 function RSDK_Init() {
     FS.chdir('/RSDKv3');
 
-    const storedSettings = localStorage.getItem('settings');
+    var storedSettings = localStorage.getItem('settings');
     if (storedSettings) {
-        const settings = JSON.parse(storedSettings);
+        var settings = JSON.parse(storedSettings);
         _RSDK_Configure(settings.enablePlus, 0);
     }
 
