@@ -19,6 +19,13 @@ export default function V5U() {
     const consoleEndRef = React.useRef<HTMLDivElement>(null);
 
     React.useEffect(() => {
+        // Flush anything that was buffered before the component mounted,
+        // then replace the buffer-writer with the real React state setter.
+        const buffered: string[] = (window as any).__engineConsoleBuffer ?? [];
+        if (buffered.length > 0) {
+            setConsoleLines(buffered.slice(-500));
+        }
+
         window.__engineConsoleAppend = (text: string) => {
             setConsoleLines(prev => {
                 const next = [...prev, text];
@@ -75,6 +82,22 @@ export default function V5U() {
             <Head>
                 <meta name='viewport' content='initial-scale=1, viewport-fit=cover' />
             </Head>
+
+            {/*
+                Runs synchronously before any other scripts.
+                Sets up a buffer so nothing logged during engine boot is lost.
+                Once the useEffect above fires, it flushes the buffer and
+                replaces __engineConsoleAppend with the real React setter.
+            */}
+            <Script id='engine-console-prebuffer' strategy='beforeInteractive'>{`
+                window.__engineConsoleBuffer = [];
+                window.__engineConsoleAppend = function(text) {
+                    window.__engineConsoleBuffer.push(text);
+                    if (window.__engineConsoleBuffer.length > 500)
+                        window.__engineConsoleBuffer.splice(0, window.__engineConsoleBuffer.length - 500);
+                };
+            `}</Script>
+
             <div className='enginePage'>
                 <ThemeProvider attribute='class' defaultTheme='dark' enableSystem>
                     <Splash />
