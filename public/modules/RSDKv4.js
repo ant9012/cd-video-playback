@@ -14970,8 +14970,6 @@ var _glGenFramebuffers = _emscripten_glGenFramebuffers;
 
 var _glGenTextures = _emscripten_glGenTextures;
 
-var _glGetError = _emscripten_glGetError;
-
 var _glLightfv = _emscripten_glLightfv;
 
 var _glLoadIdentity = _emscripten_glLoadIdentity;
@@ -15503,14 +15501,14 @@ Module["IDBFS"] = IDBFS;
 var proxiedFunctionTable = [ _proc_exit, exitOnMainThread, pthreadCreateProxied, ___syscall_fcntl64, ___syscall_fstat64, ___syscall_getcwd, ___syscall_getdents64, ___syscall_ioctl, ___syscall_lstat64, ___syscall_newfstatat, ___syscall_openat, ___syscall_stat64, __setitimer_js, _eglBindAPI, _eglChooseConfig, _eglCreateContext, _eglCreateWindowSurface, _eglDestroyContext, _eglDestroySurface, _eglGetConfigAttrib, _eglGetDisplay, _eglGetError, _eglInitialize, _eglMakeCurrent, _eglQueryString, _eglSwapBuffers, _eglSwapInterval, _eglTerminate, _eglWaitClient, _eglWaitNative, _emscripten_exit_fullscreen, getCanvasSizeMainThread, setCanvasElementSizeMainThread, _emscripten_exit_pointerlock, _emscripten_get_device_pixel_ratio, _emscripten_get_element_css_size, _emscripten_get_gamepad_status, _emscripten_get_num_gamepads, _emscripten_get_screen_size, _emscripten_request_fullscreen_strategy, _emscripten_request_pointerlock, _emscripten_sample_gamepad_data, _emscripten_set_beforeunload_callback_on_thread, _emscripten_set_blur_callback_on_thread, _emscripten_set_element_css_size, _emscripten_set_focus_callback_on_thread, _emscripten_set_fullscreenchange_callback_on_thread, _emscripten_set_gamepadconnected_callback_on_thread, _emscripten_set_gamepaddisconnected_callback_on_thread, _emscripten_set_keydown_callback_on_thread, _emscripten_set_keypress_callback_on_thread, _emscripten_set_keyup_callback_on_thread, _emscripten_set_mousedown_callback_on_thread, _emscripten_set_mouseenter_callback_on_thread, _emscripten_set_mouseleave_callback_on_thread, _emscripten_set_mousemove_callback_on_thread, _emscripten_set_mouseup_callback_on_thread, _emscripten_set_pointerlockchange_callback_on_thread, _emscripten_set_resize_callback_on_thread, _emscripten_set_touchcancel_callback_on_thread, _emscripten_set_touchend_callback_on_thread, _emscripten_set_touchmove_callback_on_thread, _emscripten_set_touchstart_callback_on_thread, _emscripten_set_visibilitychange_callback_on_thread, _emscripten_set_wheel_callback_on_thread, _emscripten_set_window_title, _environ_get, _environ_sizes_get, _fd_close, _fd_read, _fd_seek, _fd_write ];
 
 var ASM_CONSTS = {
-  712816: () => {
+  712544: () => {
     if (window.SDL2 && SDL2.audioContext && SDL2.audioContext.state === "suspended") {
       SDL2.audioContext.resume().then(function() {
         console.log("AudioContext resumed successfully.");
       });
     }
   },
-  713005: () => {
+  712733: () => {
     if (typeof (AudioContext) !== "undefined") {
       return true;
     } else if (typeof (webkitAudioContext) !== "undefined") {
@@ -15518,7 +15516,7 @@ var ASM_CONSTS = {
     }
     return false;
   },
-  713152: () => {
+  712880: () => {
     if ((typeof (navigator.mediaDevices) !== "undefined") && (typeof (navigator.mediaDevices.getUserMedia) !== "undefined")) {
       return true;
     } else if (typeof (navigator.webkitGetUserMedia) !== "undefined") {
@@ -15526,7 +15524,7 @@ var ASM_CONSTS = {
     }
     return false;
   },
-  713386: $0 => {
+  713114: $0 => {
     if (typeof (Module["SDL2"]) === "undefined") {
       Module["SDL2"] = {};
     }
@@ -15550,11 +15548,11 @@ var ASM_CONSTS = {
     }
     return SDL2.audioContext === undefined ? -1 : 0;
   },
-  713938: () => {
+  713666: () => {
     var SDL2 = Module["SDL2"];
     return SDL2.audioContext.sampleRate;
   },
-  714006: ($0, $1, $2, $3) => {
+  713734: ($0, $1, $2, $3) => {
     var SDL2 = Module["SDL2"];
     var have_microphone = function(stream) {
       if (SDL2.capture.silenceTimer !== undefined) {
@@ -15596,7 +15594,7 @@ var ASM_CONSTS = {
       }, have_microphone, no_microphone);
     }
   },
-  715699: ($0, $1, $2, $3) => {
+  715427: ($0, $1, $2, $3) => {
     var SDL2 = Module["SDL2"];
     SDL2.audio.scriptProcessorNode = SDL2.audioContext["createScriptProcessor"]($1, 0, $0);
     SDL2.audio.scriptProcessorNode["onaudioprocess"] = function(e) {
@@ -15628,7 +15626,7 @@ var ASM_CONSTS = {
       SDL2.audio.silenceTimer = setInterval(silence_callback, ($1 / SDL2.audioContext.sampleRate) * 1e3);
     }
   },
-  716874: ($0, $1) => {
+  716602: ($0, $1) => {
     var SDL2 = Module["SDL2"];
     var numChannels = SDL2.capture.currentCaptureBuffer.numberOfChannels;
     for (var c = 0; c < numChannels; ++c) {
@@ -15647,7 +15645,7 @@ var ASM_CONSTS = {
       }
     }
   },
-  717479: ($0, $1) => {
+  717207: ($0, $1) => {
     var SDL2 = Module["SDL2"];
     var buf = $0 >>> 2;
     var numChannels = SDL2.audio.currentOutputBuffer["numberOfChannels"];
@@ -15661,7 +15659,7 @@ var ASM_CONSTS = {
       }
     }
   },
-  717968: $0 => {
+  717696: $0 => {
     var SDL2 = Module["SDL2"];
     if ($0) {
       if (SDL2.capture.silenceTimer !== undefined) {
@@ -15695,12 +15693,12 @@ var ASM_CONSTS = {
       SDL2.audioContext = undefined;
     }
   },
-  718974: $0 => {
+  718702: $0 => {
     window.open(UTF8ToString($0), "_blank");
   },
-  719014: () => window.innerWidth,
-  719044: () => window.innerHeight,
-  719075: ($0, $1, $2) => {
+  718742: () => window.innerWidth,
+  718772: () => window.innerHeight,
+  718803: ($0, $1, $2) => {
     var w = $0;
     var h = $1;
     var pixels = $2;
@@ -15771,7 +15769,7 @@ var ASM_CONSTS = {
     }
     SDL2.ctx.putImageData(SDL2.image, 0, 0);
   },
-  720541: ($0, $1, $2, $3, $4) => {
+  720269: ($0, $1, $2, $3, $4) => {
     var w = $0;
     var h = $1;
     var hot_x = $2;
@@ -15808,12 +15806,12 @@ var ASM_CONSTS = {
     stringToUTF8(url, urlBuf, url.length + 1);
     return urlBuf;
   },
-  721529: $0 => {
+  721257: $0 => {
     if (Module["canvas"]) {
       Module["canvas"].style["cursor"] = UTF8ToString($0);
     }
   },
-  721612: () => {
+  721340: () => {
     if (Module["canvas"]) {
       Module["canvas"].style["cursor"] = "none";
     }
@@ -16342,7 +16340,6 @@ function assignWasmImports() {
     /** @export */ glBlendFunc: _glBlendFunc,
     /** @export */ glClear: _glClear,
     /** @export */ glClearColor: _glClearColor,
-    /** @export */ glColor4f: _glColor4f,
     /** @export */ glColorPointer: _glColorPointer,
     /** @export */ glDeleteFramebuffers: _glDeleteFramebuffers,
     /** @export */ glDeleteTextures: _glDeleteTextures,
@@ -16354,7 +16351,6 @@ function assignWasmImports() {
     /** @export */ glFramebufferTexture2D: _glFramebufferTexture2D,
     /** @export */ glGenFramebuffers: _glGenFramebuffers,
     /** @export */ glGenTextures: _glGenTextures,
-    /** @export */ glGetError: _glGetError,
     /** @export */ glGetIntegerv: _glGetIntegerv,
     /** @export */ glLightfv: _glLightfv,
     /** @export */ glLoadIdentity: _glLoadIdentity,
