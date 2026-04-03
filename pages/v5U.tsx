@@ -16,9 +16,29 @@ import EngineFS from '@/lib/EngineFS'
 export default function V5U() {
     const [consoleVisible, setConsoleVisible] = React.useState(false);
     const [consoleLines, setConsoleLines] = React.useState<string[]>([]);
+    const [engineReady, setEngineReady] = React.useState(false);
     const consoleEndRef = React.useRef<HTMLDivElement>(null);
 
     React.useEffect(() => {
+        // Wait for service worker to be ready before loading engine
+        const checkServiceWorker = async () => {
+            if ('serviceWorker' in navigator) {
+                try {
+                    await navigator.serviceWorker.ready;
+                    console.log('Service worker ready, enabling engine load');
+                    setEngineReady(true);
+                } catch (e) {
+                    console.error('Service worker failed:', e);
+                    // Fallback: still try to load
+                    setEngineReady(true);
+                }
+            } else {
+                // No service worker support, load anyway
+                setEngineReady(true);
+            }
+        };
+        checkServiceWorker();
+
         // Flush anything that was buffered before the component mounted,
         // then replace the buffer-writer with the real React state setter.
         const buffered: string[] = (window as any).__engineConsoleBuffer ?? [];
@@ -83,12 +103,13 @@ export default function V5U() {
                 <meta name='viewport' content='initial-scale=1, viewport-fit=cover' />
             </Head>
 
-            {/*
-                Runs synchronously before any other scripts.
-                Sets up a buffer so nothing logged during engine boot is lost.
-                Once the useEffect above fires, it flushes the buffer and
-                replaces __engineConsoleAppend with the real React setter.
-            */}
+            {/* Load service worker FIRST and wait for it */}
+            <Script 
+                src='coi-serviceworker.js' 
+                strategy='beforeInteractive'
+            />
+
+            {/* Pre-buffer setup */}
             <Script id='engine-console-prebuffer' strategy='beforeInteractive'>{`
                 window.__engineConsoleBuffer = [];
                 window.__engineConsoleAppend = function(text) {
@@ -140,9 +161,14 @@ export default function V5U() {
                         </div>
                     )}
                 </ThemeProvider>
-                <Script src='coi-serviceworker.js' />
-                <Script src='./lib/RSDKv5U.js' />
-                <Script src='./modules/RSDKv5U.js' />
+                
+                {/* Only load engine scripts after service worker is ready */}
+                {engineReady && (
+                    <>
+                        <Script src='./lib/RSDKv5U.js' strategy='afterInteractive' />
+                        <Script src='./modules/RSDKv5U.js' strategy='lazyOnload' />
+                    </>
+                )}
             </div>
         </>
     )
