@@ -1,11 +1,9 @@
 var Module = {
     // ===== PTHREAD CONFIGURATION (CRITICAL) =====
-    // This must be set BEFORE the WASM module loads
     mainScriptUrlOrBlob: new URL('./modules/RSDKv5U.js', document.baseURI).href,
     
     preRun: [
         function() {
-            // Ensure directories exist before FS operations
             console.log('preRun: Setting up filesystem...');
         }
     ],
@@ -74,9 +72,7 @@ var Module = {
         Module.setStatus(left ? 'Preparing... (' + (Module.totalDependencies - left) + '/' + Module.totalDependencies + ')' : 'All downloads complete.');
     },
     
-    // ===== PTHREAD WORKER CONFIGURATION =====
     locateFile: function(path, prefix) {
-        // Ensure worker script loads from correct location
         if (path.endsWith('.worker.js')) {
             return './modules/' + path;
         }
@@ -86,6 +82,55 @@ var Module = {
         return prefix + path;
     }
 };
+
+// ===== INTERCEPT ALL CONSOLE METHODS =====
+(function() {
+    const originalLog = console.log;
+    const originalError = console.error;
+    const originalWarn = console.warn;
+    const originalInfo = console.info;
+    const originalDebug = console.debug;
+
+    console.log = function(...args) {
+        const text = args.map(arg => 
+            typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+        ).join(' ');
+        window.__engineConsoleAppend?.(text);
+        originalLog.apply(console, args);
+    };
+
+    console.error = function(...args) {
+        const text = args.map(arg => 
+            typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+        ).join(' ');
+        window.__engineConsoleAppend?.('[ERROR] ' + text);
+        originalError.apply(console, args);
+    };
+
+    console.warn = function(...args) {
+        const text = args.map(arg => 
+            typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+        ).join(' ');
+        window.__engineConsoleAppend?.('[WARNING] ' + text);
+        originalWarn.apply(console, args);
+    };
+
+    console.info = function(...args) {
+        const text = args.map(arg => 
+            typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+        ).join(' ');
+        window.__engineConsoleAppend?.('[INFO] ' + text);
+        originalInfo.apply(console, args);
+    };
+
+    console.debug = function(...args) {
+        const text = args.map(arg => 
+            typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+        ).join(' ');
+        window.__engineConsoleAppend?.('[DEBUG] ' + text);
+        originalDebug.apply(console, args);
+    };
+})();
 
 Module.setStatus('Downloading...');
 
