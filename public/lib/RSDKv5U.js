@@ -160,11 +160,19 @@ function RSDK_Init() {
         
         window.__engineConsoleAppend?.('[STATUS] Calling RSDK_Initialize...');
         
-        Module.ccall('RSDK_Initialize', null, [], []);
+        // Wrap in try-catch to see WHERE it fails
+        try {
+            Module.ccall('RSDK_Initialize', null, [], []);
+        } catch (innerError) {
+            console.error('[RSDK_Initialize] Crashed:', innerError);
+            console.error('[RSDK_Initialize] Stack:', innerError.stack);
+            throw innerError;
+        }
         
         window.__engineConsoleAppend?.('[STATUS] RSDK_Initialize dispatched (loop runs via emscripten_set_main_loop)');
     } catch (e) {
         console.error('RSDK_Init failed:', e);
+        console.error('Full stack:', e.stack);
         window.__engineConsoleAppend?.('[ERROR] RSDK_Init failed: ' + e.message);
     }
 }
