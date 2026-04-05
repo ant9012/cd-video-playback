@@ -54,12 +54,21 @@ export default function V5U() {
             });
         };
 
+        // ===== EXPOSE EngineFS TO GLOBAL SCOPE =====
         window.TS_InitFS = async (p: string, f: any) => {
             try {
+                console.log('[TS_InitFS] Starting initialization for:', p);
                 await EngineFS.Init(p);
+                console.log('[TS_InitFS] EngineFS.Init completed');
+                
+                // Give the filesystem a moment to settle
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                console.log('[TS_InitFS] Calling callback');
                 f();
             } catch (error) {
-                console.error('EngineFS init failed:', error);
+                console.error('[TS_InitFS] EngineFS init failed:', error);
+                window.__engineConsoleAppend?.('[ERROR] FS init failed: ' + (error as Error).message);
             }
         };
     }, []);
@@ -84,8 +93,12 @@ export default function V5U() {
     const getLineClass = (line: string): string => {
         if (line.includes('[ERROR]') || line.includes('ERROR') || line.includes('Exception') || line.includes('[FATAL]'))
             return 'engine-console-line--error';
-        if (line.includes('WARNING') || line.includes('WARN'))
+        if (line.includes('WARNING') || line.includes('WARN') || line.includes('[WARNING]'))
             return 'engine-console-line--warning';
+        if (line.includes('[INFO]'))
+            return 'engine-console-line--info';
+        if (line.includes('[DEBUG]'))
+            return 'engine-console-line--debug';
         if (line.includes('MSZSetup:'))
             return 'engine-console-line--info';
         if (line.includes('->'))
