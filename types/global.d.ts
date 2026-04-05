@@ -1,8 +1,12 @@
-export {};
+export {}
 
 declare global {
     interface Window {
-        TS_InitFS: (p: string, f: () => void) => Promise<void>;
-        __engineConsoleAppend: (text: string) => void;
+        __engineConsoleBuffer: string[]
+        __engineConsoleAppend?: (text: string) => void
+        TS_InitFS: (path: string, callback: () => void) => Promise<void>
+        EngineFS: {
+            Init: (path: string) => Promise<void>
+        }
     }
 }
