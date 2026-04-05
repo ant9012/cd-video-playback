@@ -10,8 +10,10 @@ var Module = {
     
     onRuntimeInitialized: function () {
         console.log('Runtime initialized, waiting for FS...');
-        TS_InitFS('RSDKv5U',
-            function () {
+        
+        // Delay FS init to give IDBFS time to mount properly
+        setTimeout(() => {
+            TS_InitFS('RSDKv5U', function () {
                 window.__engineConsoleAppend?.('[STATUS] EngineFS initialized');
                 console.log('EngineFS initialized');
                 const splash = document.getElementById("splash");
@@ -21,6 +23,7 @@ var Module = {
                 }
                 RSDK_Init();
             });
+        }, 500);
     },
     
     print: (function () {
@@ -147,25 +150,49 @@ window.onerror = (msg, src, line, col, err) => {
     };
 };
 
+// ===== ASYNC FILESYSTEM INITIALIZATION =====
+window.TS_InitFS = async (p, f) => {
+    try {
+        console.log('[FS] Starting async initialization for:', p);
+        await EngineFS.Init(p);
+        console.log('[FS] EngineFS.Init completed');
+        
+        // Give the filesystem a moment to settle
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        console.log('[FS] Calling callback');
+        f();
+    } catch (error) {
+        console.error('[FS] EngineFS init failed:', error);
+        window.__engineConsoleAppend?.('[ERROR] FS init failed: ' + error.message);
+    }
+};
+
+// ===== ENGINE INITIALIZATION =====
 function RSDK_Init() {
     try {
+        console.log('[RSDK] Changing directory to /RSDKv5U');
         FS.chdir('/RSDKv5U');
         window.__engineConsoleAppend?.('[STATUS] Working directory set to /RSDKv5U');
         
         const storedSettings = localStorage.getItem('settings');
         if (storedSettings) {
+            console.log('[RSDK] Loading stored settings');
             const settings = JSON.parse(storedSettings);
             Module.ccall('RSDK_Configure', null, ['number', 'number'], [settings.enablePlus, 0]);
         }
         
         window.__engineConsoleAppend?.('[STATUS] Calling RSDK_Initialize...');
+        console.log('[RSDK] Calling RSDK_Initialize...');
         
         // Wrap in try-catch to see WHERE it fails
         try {
             Module.ccall('RSDK_Initialize', null, [], []);
+            console.log('[RSDK] RSDK_Initialize completed');
         } catch (innerError) {
             console.error('[RSDK_Initialize] Crashed:', innerError);
             console.error('[RSDK_Initialize] Stack:', innerError.stack);
+            window.__engineConsoleAppend?.('[ERROR] RSDK_Initialize crashed: ' + innerError.message);
             throw innerError;
         }
         
@@ -177,7 +204,7 @@ function RSDK_Init() {
     }
 }
 
-// Debug: Check SharedArrayBuffer availability
+// ===== DEBUG: CHECK SHAREDARRAYBUFFER AVAILABILITY =====
 if (typeof SharedArrayBuffer === 'undefined') {
     console.error('❌ SharedArrayBuffer is NOT available!');
     console.error('crossOriginIsolated:', window.crossOriginIsolated);
