@@ -20,7 +20,7 @@ export class FaviconLoader {
     private static defaultFavicon: string = 'favicon.ico';
 
     static init() {
-        console.log('[FaviconLoader] Initializing...');
+        
         
         // Detect base path
         this.detectBasePath();
@@ -31,7 +31,7 @@ export class FaviconLoader {
         // Watch for title changes using multiple methods
         this.startWatching();
 
-        console.log('[FaviconLoader] Initialized with base path:', this.basePath);
+        
     }
 
     private static detectBasePath() {
@@ -40,7 +40,7 @@ export class FaviconLoader {
         if (baseTag?.href) {
             const url = new URL(baseTag.href);
             this.basePath = url.pathname;
-            console.log('[FaviconLoader] Base path from <base> tag:', this.basePath);
+            
             return;
         }
 
@@ -53,14 +53,14 @@ export class FaviconLoader {
             if (segments.length > 0 && !segments[0].includes('.')) {
                 // First segment is likely the repo name
                 this.basePath = '/' + segments[0] + '/';
-                console.log('[FaviconLoader] GitHub Pages detected:', this.basePath);
+                
                 return;
             }
         }
 
         // Default
         this.basePath = '/';
-        console.log('[FaviconLoader] Using default base path:', this.basePath);
+        
     }
 
     private static startWatching() {
@@ -88,12 +88,12 @@ export class FaviconLoader {
         setInterval(() => {
             if (document.title !== lastTitle) {
                 lastTitle = document.title;
-                console.log('[FaviconLoader] Title changed (polling):', lastTitle);
+                ('[FaviconLoader] Title changed (polling):', lastTitle);
                 this.scheduleUpdate();
             }
         }, 500);
 
-        console.log('[FaviconLoader] Watching for title changes');
+        
     }
 
     private static scheduleUpdate() {
@@ -122,7 +122,7 @@ export class FaviconLoader {
         let faviconRelativePath = this.defaultFavicon;
         let matchedKey = '';
 
-        console.log('[FaviconLoader] Checking title:', title);
+        
 
         // Sort keys by length (longest first) for most specific match
         const sortedKeys = Object.keys(this.faviconMap).sort((a, b) => b.length - a.length);
@@ -139,20 +139,14 @@ export class FaviconLoader {
 
         // Always update to force refresh
         if (resolvedPath !== this.currentFavicon || true) {
-            console.log('[FaviconLoader] Setting favicon to:', resolvedPath);
+            
             this.setFavicon(resolvedPath);
             this.currentFavicon = resolvedPath;
-            
-            if (matchedKey) {
-                console.log(`[FaviconLoader] ✓ Matched "${matchedKey}" -> ${resolvedPath}`);
-            } else {
-                console.log(`[FaviconLoader] Using default: ${resolvedPath}`);
-            }
         }
     }
 
     private static setFavicon(path: string) {
-        console.log('[FaviconLoader] Applying favicon:', path);
+        ('[FaviconLoader] Applying favicon:', path);
 
         // Remove ALL existing favicon-related links
         const selectors = [
@@ -164,7 +158,7 @@ export class FaviconLoader {
         
         selectors.forEach(selector => {
             document.querySelectorAll(selector).forEach(el => {
-                console.log('[FaviconLoader] Removing existing:', el.getAttribute('href'));
+                
                 el.remove();
             });
         });
@@ -180,7 +174,7 @@ export class FaviconLoader {
             if (type) link.type = type;
             link.href = pathWithCache;
             document.head.appendChild(link);
-            console.log(`[FaviconLoader] Added ${rel}:`, pathWithCache);
+            
             return link;
         };
 
@@ -210,18 +204,16 @@ export class FaviconLoader {
         if (this.updateTimeout) {
             clearTimeout(this.updateTimeout);
         }
-        console.log('[FaviconLoader] Destroyed');
+        
     }
 
     static addMapping(title: string, faviconPath: string) {
         this.faviconMap[title] = faviconPath;
-        console.log(`[FaviconLoader] Added mapping: "${title}" -> ${faviconPath}`);
         this.updateFavicon();
     }
 
     static removeMapping(title: string) {
         delete this.faviconMap[title];
-        console.log(`[FaviconLoader] Removed mapping: "${title}"`);
         this.updateFavicon();
     }
 
@@ -231,13 +223,11 @@ export class FaviconLoader {
 
     static setDefaultFavicon(path: string) {
         this.defaultFavicon = path;
-        console.log(`[FaviconLoader] Default favicon set to: ${path}`);
         this.updateFavicon();
     }
 
     static setBasePath(path: string) {
         this.basePath = path.endsWith('/') ? path : path + '/';
-        console.log(`[FaviconLoader] Base path set to: ${this.basePath}`);
         this.updateFavicon();
     }
 
@@ -247,9 +237,6 @@ export class FaviconLoader {
 
     // Manual trigger for debugging
     static forceUpdate() {
-        console.log('[FaviconLoader] Force update triggered');
-        console.log('[FaviconLoader] Current title:', document.title);
-        console.log('[FaviconLoader] Current favicon:', this.currentFavicon);
         this.updateFavicon();
     }
 }
