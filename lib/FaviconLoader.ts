@@ -88,7 +88,6 @@ export class FaviconLoader {
         setInterval(() => {
             if (document.title !== lastTitle) {
                 lastTitle = document.title;
-                ('[FaviconLoader] Title changed (polling):', lastTitle);
                 this.scheduleUpdate();
             }
         }, 500);
@@ -146,7 +145,6 @@ export class FaviconLoader {
     }
 
     private static setFavicon(path: string) {
-        ('[FaviconLoader] Applying favicon:', path);
 
         // Remove ALL existing favicon-related links
         const selectors = [
